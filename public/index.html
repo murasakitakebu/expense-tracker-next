@@ -20,6 +20,7 @@
     --shadow: 0 4px 32px rgba(0,0,0,0.5);
     --radius: 14px;
   }
+<<<<<<< HEAD
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -392,12 +393,97 @@
     transition: all 0.15s;
   }
 
+=======
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Noto Sans JP', sans-serif; min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(79,255,176,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(79,255,176,0.03) 1px, transparent 1px);
+    background-size: 40px 40px; pointer-events: none; z-index: 0;
+  }
+  .app { position: relative; z-index: 1; max-width: 1160px; margin: 0 auto; padding: 36px 20px 80px; }
+
+  /* ── Header ── */
+  header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 36px; flex-wrap: wrap; gap: 16px; }
+  .logo-mark { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--accent); background: rgba(79,255,176,0.08); border: 1px solid rgba(79,255,176,0.2); padding: 3px 10px; border-radius: 4px; letter-spacing: 2px; display: inline-block; margin-bottom: 8px; }
+  h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+  h1 span { color: var(--accent); }
+  .subtitle { font-size: 12px; color: var(--muted); margin-top: 5px; font-weight: 300; }
+  .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; margin-top: 2px; }
+  .lang-toggle { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 100px; padding: 4px; }
+  .lang-btn { background: none; border: none; color: var(--muted); font-family: 'Space Mono', monospace; font-size: 11px; cursor: pointer; padding: 4px 14px; border-radius: 100px; transition: all 0.2s; }
+  .lang-btn.active { background: var(--accent); color: #000; font-weight: 700; }
+
+  /* Notion status */
+  .notion-status { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+  .notion-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); transition: background 0.3s; }
+  .notion-dot.ok { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .notion-dot.err { background: var(--danger); }
+  .notion-dot.loading { background: var(--warn); animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* ── Layout ── */
+  .layout { display: grid; grid-template-columns: 310px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 780px) { .layout { grid-template-columns: 1fr; } }
+
+  /* ── Panel ── */
+  .panel, .results-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .panel-header, .results-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .panel-left { display: flex; align-items: center; gap: 10px; }
+  .panel-title { font-size: 11px; font-weight: 500; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-green { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .dot-purple { background: var(--accent2); box-shadow: 0 0 8px var(--accent2); }
+  .panel-body { padding: 18px; }
+
+  /* ── Input tabs ── */
+  .input-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+  .input-tab { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 10px; background: var(--surface2); border: 1.5px solid var(--border); border-radius: 10px; cursor: pointer; transition: all 0.2s; font-family: 'Noto Sans JP', sans-serif; color: var(--muted); font-size: 12px; font-weight: 500; position: relative; overflow: hidden; }
+  .input-tab input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .input-tab:hover, .input-tab.active { border-color: var(--accent); color: var(--accent); background: rgba(79,255,176,0.04); }
+  .input-tab .tab-icon { font-size: 22px; }
+
+  /* ── Preview ── */
+  #preview-wrap { display: none; position: relative; margin-bottom: 14px; }
+  #preview-img { width: 100%; border-radius: 10px; border: 1px solid var(--border); display: block; max-height: 240px; object-fit: contain; background: var(--surface2); }
+  .preview-clear { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); border: none; color: var(--text); width: 26px; height: 26px; border-radius: 50%; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+  .preview-clear:hover { background: var(--danger); }
+
+  /* ── Camera modal ── */
+  #camera-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 1000; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+  #camera-modal.open { display: flex; }
+  #camera-video { width: min(100vw - 32px, 480px); border-radius: 12px; border: 2px solid var(--accent); background: #000; }
+  #camera-canvas { display: none; }
+  .camera-controls { display: flex; gap: 16px; align-items: center; }
+  .shutter-btn { width: 64px; height: 64px; border-radius: 50%; background: var(--accent); border: 4px solid rgba(79,255,176,0.3); cursor: pointer; transition: transform 0.1s; font-size: 24px; display: flex; align-items: center; justify-content: center; }
+  .shutter-btn:active { transform: scale(0.9); }
+  .cam-close-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 13px; font-family: 'Noto Sans JP', sans-serif; }
+
+  /* ── Analyze btn ── */
+  #analyze-btn { display: none; width: 100%; padding: 14px; background: var(--accent); color: #000; border: none; border-radius: 10px; font-family: 'Noto Sans JP', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+  #analyze-btn:hover:not(:disabled) { background: #6fffc4; transform: translateY(-1px); }
+  #analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* ── Loading ── */
+  .loading-bar { display: none; margin-top: 14px; height: 3px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .loading-bar.active { display: block; }
+  .loading-bar::after { content: ''; display: block; height: 100%; width: 40%; background: var(--accent); border-radius: 3px; animation: loadslide 1.2s ease-in-out infinite; }
+  @keyframes loadslide { 0%{transform:translateX(-100%)} 100%{transform:translateX(350%)} }
+  .loading-text { display: none; text-align: center; font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .loading-text.active { display: block; }
+  .error-msg { display: none; margin-top: 12px; padding: 11px 14px; background: rgba(255,92,124,0.08); border: 1px solid rgba(255,92,124,0.25); border-radius: 8px; font-size: 12px; color: var(--danger); line-height: 1.5; }
+
+  /* ── Actions ── */
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { padding: 7px 14px; border-radius: 8px; border: none; font-family: 'Noto Sans JP', sans-serif; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+>>>>>>> 48c4b2b (updated)
   .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
   .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
   .btn-csv { background: rgba(124,140,255,0.12); color: var(--accent2); border: 1px solid rgba(124,140,255,0.25); }
   .btn-csv:hover { background: rgba(124,140,255,0.22); }
   .btn-xls { background: rgba(79,255,176,0.12); color: var(--accent); border: 1px solid rgba(79,255,176,0.25); }
   .btn-xls:hover { background: rgba(79,255,176,0.22); }
+<<<<<<< HEAD
 
   /* ── Table ── */
   .table-wrap { overflow-x: auto; padding: 18px; }
@@ -471,6 +557,35 @@
   .summary-item { display: flex; flex-direction: column; gap: 2px; }
   .summary-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
   .summary-value { font-family: 'Space Mono', monospace; font-size: 20px; font-weight: 700; color: var(--accent); }
+=======
+  .btn-refresh { background: rgba(255,184,79,0.1); color: var(--warn); border: 1px solid rgba(255,184,79,0.25); }
+  .btn-refresh:hover { background: rgba(255,184,79,0.2); }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; padding: 18px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { border-bottom: 2px solid var(--border); }
+  th { padding: 9px 12px; text-align: left; font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); font-weight: 500; white-space: nowrap; }
+  td { padding: 10px 12px; border-bottom: 1px solid rgba(42,47,62,0.5); vertical-align: middle; }
+  tbody tr:hover { background: rgba(255,255,255,0.015); }
+  tbody tr:last-child td { border-bottom: none; }
+  .num-cell { color: var(--muted); font-size: 11px; font-family: 'Space Mono', monospace; }
+  .amount-cell { font-family: 'Space Mono', monospace; }
+  td[contenteditable=true] { outline: none; cursor: text; }
+  td[contenteditable=true]:focus { background: rgba(79,255,176,0.04); outline: 1px solid rgba(79,255,176,0.4); border-radius: 4px; }
+  select.cat-select, select.cur-select { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 4px 6px; border-radius: 6px; font-size: 11px; font-family: 'Noto Sans JP', sans-serif; }
+  select.cur-select { font-family: 'Space Mono', monospace; max-width: 80px; }
+  .icon-btn { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 14px; padding: 3px 5px; border-radius: 4px; transition: color 0.15s; }
+  .icon-btn.del:hover { color: var(--danger); }
+  .notion-saved { font-size: 10px; color: var(--accent); opacity: 0.7; }
+
+  /* ── Subtotals ── */
+  .subtotals { padding: 14px 18px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+  .subtotal-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .subtotal-chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; display: flex; flex-direction: column; gap: 1px; }
+  .chip-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+  .chip-value { font-family: 'Space Mono', monospace; font-size: 15px; font-weight: 700; color: var(--accent); }
+>>>>>>> 48c4b2b (updated)
   .edit-hint { font-size: 11px; color: var(--muted); }
 
   /* ── Empty state ── */
@@ -479,6 +594,7 @@
   .empty-state p { font-size: 13px; line-height: 1.6; }
 
   /* ── Toast ── */
+<<<<<<< HEAD
   .toast {
     position: fixed;
     bottom: 28px; right: 24px;
@@ -516,23 +632,39 @@
     h1 { font-size: 22px; }
     .app { padding: 24px 14px 60px; }
     .actions .btn { padding: 7px 10px; font-size: 11px; }
+=======
+  .toast { position: fixed; bottom: 28px; right: 24px; background: var(--surface2); border: 1px solid var(--border); padding: 11px 16px; border-radius: 10px; font-size: 13px; box-shadow: var(--shadow); transform: translateY(70px); opacity: 0; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); z-index: 999; max-width: 300px; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  @media (max-width: 480px) {
+    h1 { font-size: 22px; }
+    .app { padding: 24px 14px 60px; }
+>>>>>>> 48c4b2b (updated)
   }
 </style>
 </head>
 <body>
 <div class="app">
+<<<<<<< HEAD
 
+=======
+>>>>>>> 48c4b2b (updated)
   <header>
     <div>
       <div class="logo-mark">EXPENSE</div>
       <h1 id="h-title">経費精算 <span>System</span></h1>
+<<<<<<< HEAD
       <p class="subtitle" id="h-sub">レシート写真をアップロード・撮影 → AIが自動解析 → Excel / CSV出力</p>
+=======
+      <p class="subtitle" id="h-sub">レシートをAI解析 → Notionに自動保存 → Excel / CSV出力</p>
+>>>>>>> 48c4b2b (updated)
     </div>
     <div class="header-right">
       <div class="lang-toggle">
         <button class="lang-btn active" id="btn-ja" onclick="setLang('ja')">JA</button>
         <button class="lang-btn" id="btn-en" onclick="setLang('en')">EN</button>
       </div>
+<<<<<<< HEAD
       <div class="currency-wrap">
         <label id="lbl-currency">通貨</label>
         <select id="currency-select" onchange="updateSummary()">
@@ -542,11 +674,17 @@
           <option value="GBP">GBP £</option>
           <option value="CNY">CNY ¥</option>
         </select>
+=======
+      <div class="notion-status">
+        <div class="notion-dot" id="notion-dot"></div>
+        <span id="notion-status-txt">Notion</span>
+>>>>>>> 48c4b2b (updated)
       </div>
     </div>
   </header>
 
   <div class="layout">
+<<<<<<< HEAD
 
     <!-- ── Left: Upload/Camera panel ── -->
     <div class="panel">
@@ -559,17 +697,33 @@
         <!-- Input method tabs -->
         <div class="input-tabs">
           <!-- Upload tab -->
+=======
+    <!-- Left -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-left">
+          <div class="dot dot-green"></div>
+          <span class="panel-title" id="pt-upload">レシート入力</span>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="input-tabs">
+>>>>>>> 48c4b2b (updated)
           <label class="input-tab" id="tab-upload">
             <input type="file" id="file-input" accept="image/*">
             <span class="tab-icon">🖼️</span>
             <span id="tab-upload-lbl">画像を選択</span>
           </label>
+<<<<<<< HEAD
           <!-- Camera tab -->
+=======
+>>>>>>> 48c4b2b (updated)
           <button class="input-tab" id="tab-camera" onclick="openCamera()">
             <span class="tab-icon">📷</span>
             <span id="tab-camera-lbl">カメラで撮影</span>
           </button>
         </div>
+<<<<<<< HEAD
 
         <!-- Preview -->
         <div id="preview-wrap">
@@ -594,10 +748,31 @@
     <div class="results-panel">
       <div class="results-header">
         <div class="results-left">
+=======
+        <div id="preview-wrap">
+          <img id="preview-img" src="" alt="preview">
+          <button class="preview-clear" onclick="clearPreview()">✕</button>
+        </div>
+        <div class="loading-bar" id="loading-bar"></div>
+        <div class="loading-text" id="loading-text">🤖 AIがレシートを解析中…</div>
+        <div class="error-msg" id="error-msg"></div>
+        <button id="analyze-btn" onclick="analyzeReceipt()">✨ AIで解析する</button>
+      </div>
+    </div>
+
+    <!-- Right -->
+    <div class="results-panel">
+      <div class="results-header">
+        <div class="panel-left">
+>>>>>>> 48c4b2b (updated)
           <div class="dot dot-purple"></div>
           <span class="panel-title" id="pt-data">経費データ</span>
         </div>
         <div class="actions">
+<<<<<<< HEAD
+=======
+          <button class="btn btn-refresh" id="btn-refresh" onclick="loadFromNotion()" title="Notionから再読み込み">↻</button>
+>>>>>>> 48c4b2b (updated)
           <button class="btn btn-ghost" id="btn-add" onclick="addRow()">＋ 行を追加</button>
           <button class="btn btn-csv" onclick="downloadCSV()">⬇ CSV</button>
           <button class="btn btn-xls" onclick="downloadExcel()">⬇ Excel</button>
@@ -612,13 +787,21 @@
               <th id="th-date">日付</th>
               <th id="th-store">店舗・内容</th>
               <th id="th-cat">カテゴリ</th>
+<<<<<<< HEAD
+=======
+              <th id="th-cur">通貨</th>
+>>>>>>> 48c4b2b (updated)
               <th id="th-amt">金額</th>
               <th id="th-note">備考</th>
               <th></th>
             </tr>
           </thead>
           <tbody id="table-body">
+<<<<<<< HEAD
             <tr id="empty-row"><td colspan="7">
+=======
+            <tr id="empty-row"><td colspan="8">
+>>>>>>> 48c4b2b (updated)
               <div class="empty-state">
                 <div class="icon">📋</div>
                 <p id="empty-txt">レシートをアップロード・撮影してAI解析するか<br>「行を追加」で手動入力してください</p>
@@ -628,6 +811,7 @@
         </table>
       </div>
 
+<<<<<<< HEAD
       <div class="summary" id="summary-strip" style="display:none">
         <div class="summary-item">
           <span class="summary-label" id="lbl-count">件数</span>
@@ -645,13 +829,24 @@
 </div>
 
 <!-- ── Camera Modal ── -->
+=======
+      <div class="subtotals" id="subtotals-strip" style="display:none">
+        <div class="subtotal-chips" id="subtotal-chips"></div>
+        <span class="edit-hint" id="edit-hint">セルをクリックして編集</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Camera Modal -->
+>>>>>>> 48c4b2b (updated)
 <div id="camera-modal">
-  <video id="camera-video" autoplay playsinline muted></video>
-  <canvas id="camera-canvas"></canvas>
   <div class="camera-controls">
     <button class="cam-close-btn" id="cam-close-btn" onclick="closeCamera()">✕ キャンセル</button>
     <button class="shutter-btn" onclick="capturePhoto()">📸</button>
   </div>
+  <video id="camera-video" autoplay playsinline muted></video>
+  <canvas id="camera-canvas"></canvas>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -661,6 +856,7 @@
 const T = {
   ja: {
     title: '経費精算 <span style="color:var(--accent)">System</span>',
+<<<<<<< HEAD
     sub: 'レシート写真をアップロード・撮影 → AIが自動解析 → Excel / CSV出力',
     ptUpload: 'レシート入力', ptData: '経費データ',
     tabUpload: '画像を選択', tabCamera: 'カメラで撮影',
@@ -705,14 +901,68 @@ const T = {
   }
 };
 
+=======
+    sub: 'レシートをAI解析 → Notionに自動保存 → Excel / CSV出力',
+    ptUpload: 'レシート入力', ptData: '経費データ',
+    tabUpload: '画像を選択', tabCamera: 'カメラで撮影',
+    loadingTxt: '🤖 AIがレシートを解析中…',
+    analyzeBtn: '✨ AIで解析する', addBtn: '＋ 行を追加',
+    thDate: '日付', thStore: '店舗・内容', thCat: 'カテゴリ', thCur: '通貨', thAmt: '金額', thNote: '備考',
+    emptyTxt: 'レシートをアップロード・撮影してAI解析するか<br>「行を追加」で手動入力してください',
+    editHint: 'セルをクリックして編集',
+    camCancel: '✕ キャンセル',
+    cats: ['交通費','宿泊費','飲食費','接待交際費','消耗品費','通信費','会議費','書籍・研修費','その他'],
+    toastAnalyzed: n => `✅ ${n}件を解析・Notionに保存しました`,
+    toastLoaded: n => `📂 Notionから${n}件を読み込みました`,
+    toastEmpty: '⚠ データがありません',
+    toastCSV: '📥 CSVをダウンロードしました', toastXLS: '📥 Excelをダウンロードしました',
+    toastCapture: '📸 撮影しました', toastDeleted: '🗑 削除しました',
+    errFail: 'エラーが発生しました',
+    notionOk: 'Notionに接続済み', notionErr: 'Notion未接続', notionLoading: '読込中…',
+    totalRow: '合計', filename: '経費精算',
+    subtotalLabel: cur => `${cur} 小計`,
+  },
+  en: {
+    title: 'Expense <span style="color:var(--accent)">Tracker</span>',
+    sub: 'AI receipt parsing → Auto-save to Notion → Export Excel / CSV',
+    ptUpload: 'Receipt Input', ptData: 'Expense Data',
+    tabUpload: 'Select Image', tabCamera: 'Use Camera',
+    loadingTxt: '🤖 AI is analyzing your receipt…',
+    analyzeBtn: '✨ Analyze with AI', addBtn: '+ Add Row',
+    thDate: 'Date', thStore: 'Store / Description', thCat: 'Category', thCur: 'Currency', thAmt: 'Amount', thNote: 'Notes',
+    emptyTxt: 'Upload or capture a receipt to auto-parse,<br>or click "Add Row" to enter manually.',
+    editHint: 'Click any cell to edit',
+    camCancel: '✕ Cancel',
+    cats: ['Transportation','Accommodation','Meals','Entertainment','Supplies','Communication','Meeting','Training & Books','Other'],
+    toastAnalyzed: n => `✅ ${n} item(s) analyzed & saved to Notion`,
+    toastLoaded: n => `📂 Loaded ${n} item(s) from Notion`,
+    toastEmpty: '⚠ No data to export',
+    toastCSV: '📥 CSV downloaded', toastXLS: '📥 Excel downloaded',
+    toastCapture: '📸 Photo captured', toastDeleted: '🗑 Deleted',
+    errFail: 'An error occurred',
+    notionOk: 'Connected to Notion', notionErr: 'Notion not connected', notionLoading: 'Loading…',
+    totalRow: 'Total', filename: 'expense_report',
+    subtotalLabel: cur => `${cur} Subtotal`,
+  }
+};
+
+const CURRENCIES = ['JPY','USD','EUR','GBP','CNY','KRW','THB','SGD','AUD','CAD'];
+const CURRENCY_SYMBOLS = { JPY:'¥', USD:'$', EUR:'€', GBP:'£', CNY:'¥', KRW:'₩', THB:'฿', SGD:'S$', AUD:'A$', CAD:'C$' };
+const CAT_JA_TO_EN = { '交通費':'Transportation','宿泊費':'Accommodation','飲食費':'Meals','接待交際費':'Entertainment','消耗品費':'Supplies','通信費':'Communication','会議費':'Meeting','書籍・研修費':'Training & Books','その他':'Other' };
+const CAT_EN_TO_JA = Object.fromEntries(Object.entries(CAT_JA_TO_EN).map(([a,b])=>[b,a]));
+
+>>>>>>> 48c4b2b (updated)
 let lang = 'ja';
 let rows = [];
 let currentImageBase64 = null;
 let currentMediaType = 'image/jpeg';
 let cameraStream = null;
 
+<<<<<<< HEAD
 const CURRENCY_SYMBOLS = { JPY:'¥', USD:'$', EUR:'€', GBP:'£', CNY:'¥' };
 
+=======
+>>>>>>> 48c4b2b (updated)
 // ─── Lang ─────────────────────────────────────────────────────────────────────
 function setLang(l) {
   lang = l;
@@ -736,6 +986,7 @@ function applyLang() {
   document.getElementById('th-date').textContent = t.thDate;
   document.getElementById('th-store').textContent = t.thStore;
   document.getElementById('th-cat').textContent = t.thCat;
+<<<<<<< HEAD
   document.getElementById('th-amt').textContent = t.thAmt;
   document.getElementById('th-note').textContent = t.thNote;
   document.getElementById('lbl-count').textContent = t.lblCount;
@@ -743,6 +994,13 @@ function applyLang() {
   document.getElementById('edit-hint').textContent = t.editHint;
   document.getElementById('lbl-currency').textContent = t.lblCurrency;
   document.getElementById('cam-close-btn').textContent = t.camCancelBtn;
+=======
+  document.getElementById('th-cur').textContent = t.thCur;
+  document.getElementById('th-amt').textContent = t.thAmt;
+  document.getElementById('th-note').textContent = t.thNote;
+  document.getElementById('edit-hint').textContent = t.editHint;
+  document.getElementById('cam-close-btn').textContent = t.camCancel;
+>>>>>>> 48c4b2b (updated)
   const emptyEl = document.getElementById('empty-txt');
   if (emptyEl) emptyEl.innerHTML = t.emptyTxt;
   rows.forEach(r => {
@@ -751,10 +1009,52 @@ function applyLang() {
     const sel = document.querySelector(`#row-${r.id} .cat-select`);
     if (sel) {
       const cur = lang==='ja' ? r.category_ja : r.category_en;
+<<<<<<< HEAD
       sel.innerHTML = T[lang].cats.map(c=>`<option ${c===cur?'selected':''}>${c}</option>`).join('');
     }
   });
   updateSummary();
+=======
+      sel.innerHTML = t.cats.map(c=>`<option ${c===cur?'selected':''}>${c}</option>`).join('');
+    }
+  });
+  updateSubtotals();
+}
+
+// ─── Notion status ─────────────────────────────────────────────────────────────
+function setNotionStatus(state) {
+  const dot = document.getElementById('notion-dot');
+  const txt = document.getElementById('notion-status-txt');
+  dot.className = 'notion-dot ' + state;
+  txt.textContent = T[lang]['notion' + state.charAt(0).toUpperCase() + state.slice(1)] || 'Notion';
+}
+
+// ─── Load from Notion ─────────────────────────────────────────────────────────
+async function loadFromNotion() {
+  setNotionStatus('loading');
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'fetch' })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) {
+      setNotionStatus('ok');
+      return;
+    }
+    // Clear and repopulate
+    rows = [];
+    const tbody = document.getElementById('table-body');
+    tbody.innerHTML = '';
+    data.forEach(item => addRowData(item, false));
+    setNotionStatus('ok');
+    showToast(T[lang].toastLoaded(data.length));
+  } catch (err) {
+    setNotionStatus('err');
+  }
+>>>>>>> 48c4b2b (updated)
 }
 
 // ─── File input ───────────────────────────────────────────────────────────────
@@ -767,9 +1067,14 @@ function loadFile(file) {
   currentMediaType = file.type || 'image/jpeg';
   const reader = new FileReader();
   reader.onload = e => {
+<<<<<<< HEAD
     const dataUrl = e.target.result;
     currentImageBase64 = dataUrl.split(',')[1];
     showPreview(dataUrl);
+=======
+    currentImageBase64 = e.target.result.split(',')[1];
+    showPreview(e.target.result);
+>>>>>>> 48c4b2b (updated)
   };
   reader.readAsDataURL(file);
 }
@@ -797,15 +1102,23 @@ async function openCamera() {
     document.getElementById('camera-video').srcObject = cameraStream;
     document.getElementById('camera-modal').classList.add('open');
   } catch (err) {
+<<<<<<< HEAD
     showToast('⚠ カメラにアクセスできません: ' + err.message);
+=======
+    showToast('⚠ カメラにアクセスできません');
+>>>>>>> 48c4b2b (updated)
   }
 }
 
 function closeCamera() {
+<<<<<<< HEAD
   if (cameraStream) {
     cameraStream.getTracks().forEach(t => t.stop());
     cameraStream = null;
   }
+=======
+  if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+>>>>>>> 48c4b2b (updated)
   document.getElementById('camera-modal').classList.remove('open');
   document.getElementById('camera-video').srcObject = null;
 }
@@ -813,8 +1126,12 @@ function closeCamera() {
 function capturePhoto() {
   const video = document.getElementById('camera-video');
   const canvas = document.getElementById('camera-canvas');
+<<<<<<< HEAD
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
+=======
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+>>>>>>> 48c4b2b (updated)
   canvas.getContext('2d').drawImage(video, 0, 0);
   const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
   currentImageBase64 = dataUrl.split(',')[1];
@@ -838,6 +1155,7 @@ async function analyzeReceipt() {
     const res = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+<<<<<<< HEAD
       body: JSON.stringify({
         imageBase64: currentImageBase64,
         mediaType: currentMediaType,
@@ -872,17 +1190,44 @@ async function analyzeReceipt() {
   } finally {
     btn.disabled = false;
     btn.textContent = T[lang].analyzeBtn;
+=======
+      body: JSON.stringify({ action: 'analyze', imageBase64: currentImageBase64, mediaType: currentMediaType })
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`;
+      try { msg = JSON.parse(text).error || msg; } catch {}
+      throw new Error(msg);
+    }
+    const data = JSON.parse(text);
+    if (!Array.isArray(data)) throw new Error('Unexpected response');
+    data.forEach(item => addRowData(item, true));
+    setNotionStatus('ok');
+    showToast(t.toastAnalyzed(data.length));
+  } catch (err) {
+    const errEl = document.getElementById('error-msg');
+    errEl.innerHTML = `<strong>${T[lang].errFail}:</strong> ${err.message}`;
+    errEl.style.display = 'block';
+    setNotionStatus('err');
+  } finally {
+    btn.disabled = false; btn.textContent = T[lang].analyzeBtn;
+>>>>>>> 48c4b2b (updated)
     document.getElementById('loading-bar').classList.remove('active');
     document.getElementById('loading-text').classList.remove('active');
   }
 }
 
 // ─── Row management ───────────────────────────────────────────────────────────
+<<<<<<< HEAD
 function addRowData(item = {}) {
+=======
+function addRowData(item = {}, savedToNotion = false) {
+>>>>>>> 48c4b2b (updated)
   const emptyRow = document.getElementById('empty-row');
   if (emptyRow) emptyRow.remove();
 
   const id = 'r' + Date.now() + Math.floor(Math.random() * 9999);
+<<<<<<< HEAD
   const row = {
     id,
     date: item.date || todayStr(),
@@ -899,6 +1244,29 @@ function addRowData(item = {}) {
 }
 
 function addRow() { addRowData(); }
+=======
+  const catEn = item.category_en || CAT_JA_TO_EN[item.category_ja] || 'Other';
+  const catJa = item.category_ja || CAT_EN_TO_JA[item.category_en] || 'その他';
+  const row = {
+    id,
+    notion_id: item.notion_id || null,
+    date: item.date || todayStr(),
+    store: item.store || '',
+    category_ja: catJa,
+    category_en: catEn,
+    currency: item.currency || 'JPY',
+    amount: item.amount || 0,
+    note_ja: item.note_ja || item.note_en || '',
+    note_en: item.note_en || item.note_ja || '',
+    savedToNotion,
+  };
+  rows.push(row);
+  renderRow(row);
+  updateSubtotals();
+}
+
+function addRow() { addRowData({}, false); }
+>>>>>>> 48c4b2b (updated)
 
 function renderRow(row) {
   const tbody = document.getElementById('table-body');
@@ -918,24 +1286,48 @@ function renderRow(row) {
         ${t.cats.map(c=>`<option ${c===cat?'selected':''}>${c}</option>`).join('')}
       </select>
     </td>
+<<<<<<< HEAD
     <td contenteditable="true" class="amount-cell" oninput="updateField('${row.id}','amount',this.textContent.trim())">${row.amount}</td>
     <td contenteditable="true" class="note-cell" oninput="updateNote('${row.id}',this.textContent.trim())">${note}</td>
     <td><button class="icon-btn del" onclick="deleteRow('${row.id}')">🗑</button></td>
   `;
   tbody.appendChild(tr);
   document.getElementById('summary-strip').style.display = 'flex';
+=======
+    <td>
+      <select class="cur-select" onchange="updateField('${row.id}','currency',this.value)">
+        ${CURRENCIES.map(c=>`<option ${c===row.currency?'selected':''}>${c}</option>`).join('')}
+      </select>
+    </td>
+    <td contenteditable="true" class="amount-cell" oninput="updateField('${row.id}','amount',this.textContent.trim())">${row.amount}</td>
+    <td contenteditable="true" class="note-cell" oninput="updateNote('${row.id}',this.textContent.trim())">${note}</td>
+    <td>
+      ${row.savedToNotion ? '<span class="notion-saved" title="Notionに保存済">✓N</span>' : ''}
+      <button class="icon-btn del" onclick="deleteRow('${row.id}')">🗑</button>
+    </td>
+  `;
+  tbody.appendChild(tr);
+  document.getElementById('subtotals-strip').style.display = 'flex';
+>>>>>>> 48c4b2b (updated)
 }
 
 function updateField(id, field, value) {
   const r = rows.find(r => r.id === id);
   if (!r) return;
+<<<<<<< HEAD
   if (field === 'amount') { r.amount = parseFloat(value.replace(/[^0-9.]/g,'')) || 0; updateSummary(); }
   else r[field] = value;
+=======
+  if (field === 'amount') { r.amount = parseFloat(value.replace(/[^0-9.]/g,'')) || 0; }
+  else r[field] = value;
+  updateSubtotals();
+>>>>>>> 48c4b2b (updated)
 }
 
 function updateCat(id, value) {
   const r = rows.find(r => r.id === id);
   if (!r) return;
+<<<<<<< HEAD
   if (lang === 'ja') {
     r.category_ja = value;
     const i = T.ja.cats.indexOf(value);
@@ -945,6 +1337,10 @@ function updateCat(id, value) {
     const i = T.en.cats.indexOf(value);
     if (i >= 0) r.category_ja = T.ja.cats[i];
   }
+=======
+  if (lang === 'ja') { r.category_ja = value; r.category_en = CAT_JA_TO_EN[value] || 'Other'; }
+  else { r.category_en = value; r.category_ja = CAT_EN_TO_JA[value] || 'その他'; }
+>>>>>>> 48c4b2b (updated)
 }
 
 function updateNote(id, value) {
@@ -953,6 +1349,7 @@ function updateNote(id, value) {
   if (lang === 'ja') r.note_ja = value; else r.note_en = value;
 }
 
+<<<<<<< HEAD
 function deleteRow(id) {
   rows = rows.filter(r => r.id !== id);
   document.getElementById('row-' + id)?.remove();
@@ -967,6 +1364,43 @@ function updateSummary() {
   const sym = CURRENCY_SYMBOLS[document.getElementById('currency-select').value] || '¥';
   document.getElementById('count-val').textContent = rows.length + (lang==='ja' ? '件' : '');
   document.getElementById('total-val').textContent = sym + total.toLocaleString();
+=======
+async function deleteRow(id) {
+  const r = rows.find(r => r.id === id);
+  if (r && r.notion_id) {
+    fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', notion_id: r.notion_id })
+    }).catch(() => {});
+  }
+  rows = rows.filter(r => r.id !== id);
+  document.getElementById('row-' + id)?.remove();
+  if (!rows.length) {
+    document.getElementById('table-body').innerHTML = `<tr id="empty-row"><td colspan="8"><div class="empty-state"><div class="icon">📋</div><p id="empty-txt">${T[lang].emptyTxt}</p></div></td></tr>`;
+    document.getElementById('subtotals-strip').style.display = 'none';
+  } else updateSubtotals();
+  showToast(T[lang].toastDeleted);
+}
+
+// ─── Subtotals ────────────────────────────────────────────────────────────────
+function updateSubtotals() {
+  const totals = {};
+  rows.forEach(r => {
+    const cur = r.currency || 'JPY';
+    totals[cur] = (totals[cur] || 0) + (parseFloat(r.amount) || 0);
+  });
+
+  const chips = document.getElementById('subtotal-chips');
+  chips.innerHTML = Object.entries(totals).map(([cur, amt]) => {
+    const sym = CURRENCY_SYMBOLS[cur] || cur;
+    return `<div class="subtotal-chip">
+      <span class="chip-label">${T[lang].subtotalLabel(cur)}</span>
+      <span class="chip-value">${sym}${amt.toLocaleString()}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('edit-hint').textContent = T[lang].editHint;
+>>>>>>> 48c4b2b (updated)
 }
 
 // ─── Export ───────────────────────────────────────────────────────────────────
@@ -974,6 +1408,10 @@ function getExportRows() {
   return rows.map((r,i) => ({
     no: i+1, date: r.date, store: r.store,
     category: lang==='ja' ? r.category_ja : r.category_en,
+<<<<<<< HEAD
+=======
+    currency: r.currency,
+>>>>>>> 48c4b2b (updated)
     amount: r.amount,
     note: lang==='ja' ? (r.note_ja||'') : (r.note_en||'')
   }));
@@ -982,10 +1420,16 @@ function getExportRows() {
 function downloadCSV() {
   const t = T[lang];
   if (!rows.length) { showToast(t.toastEmpty); return; }
+<<<<<<< HEAD
   const cur = document.getElementById('currency-select').value;
   const headers = ['No', t.thDate, t.thStore, t.thCat, `${t.thAmt} (${cur})`, t.thNote];
   const data = getExportRows();
   const csv = '\uFEFF' + [headers, ...data.map(r=>[r.no,r.date,r.store,r.category,r.amount,r.note])]
+=======
+  const headers = ['No', t.thDate, t.thStore, t.thCat, t.thCur, t.thAmt, t.thNote];
+  const data = getExportRows();
+  const csv = '\uFEFF' + [headers, ...data.map(r=>[r.no,r.date,r.store,r.category,r.currency,r.amount,r.note])]
+>>>>>>> 48c4b2b (updated)
     .map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   triggerDownload(t.filename + '_' + todayStr() + '.csv', csv, 'text/csv;charset=utf-8');
   showToast(t.toastCSV);
@@ -994,6 +1438,7 @@ function downloadCSV() {
 function downloadExcel() {
   const t = T[lang];
   if (!rows.length) { showToast(t.toastEmpty); return; }
+<<<<<<< HEAD
   const cur = document.getElementById('currency-select').value;
   const headers = ['No', t.thDate, t.thStore, t.thCat, `${t.thAmt} (${cur})`, t.thNote];
   const data = getExportRows();
@@ -1003,6 +1448,23 @@ function downloadExcel() {
   let tbl = `<table><tr>${headers.map(hcell).join('')}</tr>`;
   data.forEach(r => { tbl += `<tr>${[r.no,r.date,r.store,r.category,r.amount,r.note].map(cell).join('')}</tr>`; });
   tbl += `<tr><td colspan="4" style="font-weight:bold;text-align:right;border:1px solid #ddd;padding:7px">${t.totalRow}</td><td style="font-weight:bold;border:1px solid #ddd;padding:7px">${total.toLocaleString()}</td><td style="border:1px solid #ddd;padding:7px"></td></tr></table>`;
+=======
+  const headers = ['No', t.thDate, t.thStore, t.thCat, t.thCur, t.thAmt, t.thNote];
+  const data = getExportRows();
+
+  // Subtotal rows per currency
+  const totals = {};
+  data.forEach(r => { totals[r.currency] = (totals[r.currency]||0) + (parseFloat(r.amount)||0); });
+
+  const cell = v => `<td style="border:1px solid #ddd;padding:7px">${v}</td>`;
+  const hcell = v => `<th style="background:#1a3a2a;color:#4fffb0;font-weight:bold;border:1px solid #aaa;padding:7px">${v}</th>`;
+  let tbl = `<table><tr>${headers.map(hcell).join('')}</tr>`;
+  data.forEach(r => { tbl += `<tr>${[r.no,r.date,r.store,r.category,r.currency,r.amount,r.note].map(cell).join('')}</tr>`; });
+  Object.entries(totals).forEach(([cur, amt]) => {
+    tbl += `<tr><td colspan="5" style="font-weight:bold;text-align:right;border:1px solid #ddd;padding:7px">${t.totalRow} (${cur})</td><td style="font-weight:bold;border:1px solid #ddd;padding:7px">${amt.toLocaleString()}</td><td style="border:1px solid #ddd;padding:7px"></td></tr>`;
+  });
+  tbl += '</table>';
+>>>>>>> 48c4b2b (updated)
   const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><meta name="ProgId" content="Excel.Sheet"></head><body>${tbl}</body></html>`;
   triggerDownload(t.filename + '_' + todayStr() + '.xls', '\uFEFF' + html, 'application/vnd.ms-excel;charset=utf-8');
   showToast(t.toastXLS);
@@ -1022,6 +1484,15 @@ function showToast(msg) {
   el.textContent = msg; el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2800);
 }
+<<<<<<< HEAD
+=======
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  setNotionStatus('loading');
+  loadFromNotion();
+});
+>>>>>>> 48c4b2b (updated)
 </script>
 </body>
 </html>
