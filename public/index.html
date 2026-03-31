@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>経費精算 / Expense Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #161922;
+    --surface2: #1e2230;
+    --border: #2a2f3e;
+    --accent: #4fffb0;
+    --accent2: #7c8cff;
+    --danger: #ff5c7c;
+    --warn: #ffb84f;
+    --text: #e8eaf2;
+    --muted: #6b7390;
+    --shadow: 0 4px 32px rgba(0,0,0,0.5);
+    --radius: 14px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(79,255,176,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(79,255,176,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none; z-index: 0;
+  }
+
+  .app {
+    position: relative; z-index: 1;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 36px 20px 80px;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .logo-mark {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    background: rgba(79,255,176,0.08);
+    border: 1px solid rgba(79,255,176,0.2);
+    padding: 3px 10px;
+    border-radius: 4px;
+    letter-spacing: 2px;
+    display: inline-block;
+    margin-bottom: 8px;
+  }
+
+  h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.2; }
+  h1 span { color: var(--accent); }
+  .subtitle { font-size: 12px; color: var(--muted); margin-top: 5px; font-weight: 300; }
+
+  .header-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+    margin-top: 2px;
+  }
+
+  .lang-toggle {
+    display: flex;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 4px;
+  }
+
+  .lang-btn {
+    background: none; border: none;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    padding: 4px 14px;
+    border-radius: 100px;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+
+  .lang-btn.active { background: var(--accent); color: #000; font-weight: 700; }
+
+  .currency-wrap { display: flex; align-items: center; gap: 8px; }
+  .currency-wrap label { font-size: 11px; color: var(--muted); }
+
+  select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    cursor: pointer;
+  }
+
+  /* ── Layout ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  @media (max-width: 780px) { .layout { grid-template-columns: 1fr; } }
+
+  /* ── Panel ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .dot-green { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .dot-purple { background: var(--accent2); box-shadow: 0 0 8px var(--accent2); }
+
+  .panel-title {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .panel-body { padding: 18px; }
+
+  /* ── Input methods ── */
+  .input-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .input-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 14px 10px;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Noto Sans JP', sans-serif;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 500;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .input-tab input[type=file] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer;
+    width: 100%; height: 100%;
+  }
+
+  .input-tab:hover, .input-tab.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(79,255,176,0.04);
+  }
+
+  .input-tab .tab-icon { font-size: 22px; }
+
+  /* ── Preview ── */
+  #preview-wrap {
+    display: none;
+    position: relative;
+    margin-bottom: 14px;
+  }
+
+  #preview-img {
+    width: 100%;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    display: block;
+    max-height: 260px;
+    object-fit: contain;
+    background: var(--surface2);
+  }
+
+  .preview-clear {
+    position: absolute;
+    top: 8px; right: 8px;
+    background: rgba(0,0,0,0.6);
+    border: none;
+    color: var(--text);
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
+
+  .preview-clear:hover { background: var(--danger); }
+
+  /* ── Camera modal ── */
+  #camera-modal {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.9);
+    z-index: 1000;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  #camera-modal.open { display: flex; }
+
+  #camera-video {
+    width: min(100vw, 480px);
+    border-radius: 12px;
+    border: 2px solid var(--accent);
+    background: #000;
+  }
+
+  .camera-controls {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .shutter-btn {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 4px solid rgba(79,255,176,0.3);
+    cursor: pointer;
+    transition: transform 0.1s, background 0.1s;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+  }
+
+  .shutter-btn:active { transform: scale(0.92); background: #6fffc4; }
+
+  .cam-close-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+
+  #camera-canvas { display: none; }
+
+  /* ── Analyze button ── */
+  #analyze-btn {
+    display: none;
+    width: 100%;
+    padding: 14px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 10px;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+
+  #analyze-btn:hover:not(:disabled) { background: #6fffc4; transform: translateY(-1px); }
+  #analyze-btn:active:not(:disabled) { transform: translateY(0); }
+  #analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── Loading ── */
+  .loading-bar {
+    display: none;
+    margin-top: 14px;
+    height: 3px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .loading-bar.active { display: block; }
+
+  .loading-bar::after {
+    content: '';
+    display: block;
+    height: 100%; width: 40%;
+    background: var(--accent);
+    border-radius: 3px;
+    animation: loadslide 1.2s ease-in-out infinite;
+  }
+
+  @keyframes loadslide {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
+  }
+
+  .loading-text {
+    display: none;
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 10px;
+  }
+
+  .loading-text.active { display: block; }
+
+  /* ── Error ── */
+  .error-msg {
+    display: none;
+    margin-top: 12px;
+    padding: 11px 14px;
+    background: rgba(255,92,124,0.08);
+    border: 1px solid rgba(255,92,124,0.25);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--danger);
+    line-height: 1.5;
+  }
+
+  /* ── Results panel ── */
+  .results-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .results-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .results-left { display: flex; align-items: center; gap: 10px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .btn {
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: none;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+  .btn-csv { background: rgba(124,140,255,0.12); color: var(--accent2); border: 1px solid rgba(124,140,255,0.25); }
+  .btn-csv:hover { background: rgba(124,140,255,0.22); }
+  .btn-xls { background: rgba(79,255,176,0.12); color: var(--accent); border: 1px solid rgba(79,255,176,0.25); }
+  .btn-xls:hover { background: rgba(79,255,176,0.22); }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; padding: 18px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+
+  thead tr { border-bottom: 2px solid var(--border); }
+
+  th {
+    padding: 9px 12px;
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 11px 12px;
+    border-bottom: 1px solid rgba(42,47,62,0.5);
+    vertical-align: middle;
+  }
+
+  tbody tr:hover { background: rgba(255,255,255,0.015); }
+  tbody tr:last-child td { border-bottom: none; }
+
+  .amount-cell { font-family: 'Space Mono', monospace; font-size: 13px; }
+  .num-cell { color: var(--muted); font-size: 11px; font-family: 'Space Mono', monospace; }
+
+  td[contenteditable=true] { outline: none; cursor: text; }
+  td[contenteditable=true]:focus {
+    background: rgba(79,255,176,0.04);
+    outline: 1px solid rgba(79,255,176,0.4);
+    border-radius: 4px;
+  }
+
+  select.cat-select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-family: 'Noto Sans JP', sans-serif;
+    max-width: 160px;
+  }
+
+  .icon-btn {
+    background: none; border: none;
+    cursor: pointer; color: var(--muted);
+    font-size: 14px; padding: 3px 5px;
+    border-radius: 4px;
+    transition: color 0.15s;
+  }
+
+  .icon-btn.del:hover { color: var(--danger); }
+
+  /* ── Summary ── */
+  .summary {
+    padding: 14px 18px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .summary-item { display: flex; flex-direction: column; gap: 2px; }
+  .summary-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .summary-value { font-family: 'Space Mono', monospace; font-size: 20px; font-weight: 700; color: var(--accent); }
+  .edit-hint { font-size: 11px; color: var(--muted); }
+
+  /* ── Empty state ── */
+  .empty-state { padding: 52px 20px; text-align: center; color: var(--muted); }
+  .empty-state .icon { font-size: 36px; margin-bottom: 10px; }
+  .empty-state p { font-size: 13px; line-height: 1.6; }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 28px; right: 24px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 11px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    box-shadow: var(--shadow);
+    transform: translateY(70px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    z-index: 999;
+    max-width: 300px;
+  }
+
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* ── Env warning ── */
+  .env-warning {
+    margin-bottom: 20px;
+    padding: 12px 16px;
+    background: rgba(255,184,79,0.08);
+    border: 1px solid rgba(255,184,79,0.25);
+    border-radius: 10px;
+    font-size: 12px;
+    color: var(--warn);
+    line-height: 1.6;
+  }
+
+  .env-warning strong { display: block; margin-bottom: 2px; font-size: 13px; }
+
+  /* Mobile adjustments */
+  @media (max-width: 480px) {
+    h1 { font-size: 22px; }
+    .app { padding: 24px 14px 60px; }
+    .actions .btn { padding: 7px 10px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div>
+      <div class="logo-mark">EXPENSE</div>
+      <h1 id="h-title">経費精算 <span>System</span></h1>
+      <p class="subtitle" id="h-sub">レシート写真をアップロード・撮影 → AIが自動解析 → Excel / CSV出力</p>
+    </div>
+    <div class="header-right">
+      <div class="lang-toggle">
+        <button class="lang-btn active" id="btn-ja" onclick="setLang('ja')">JA</button>
+        <button class="lang-btn" id="btn-en" onclick="setLang('en')">EN</button>
+      </div>
+      <div class="currency-wrap">
+        <label id="lbl-currency">通貨</label>
+        <select id="currency-select" onchange="updateSummary()">
+          <option value="JPY">JPY ¥</option>
+          <option value="USD">USD $</option>
+          <option value="EUR">EUR €</option>
+          <option value="GBP">GBP £</option>
+          <option value="CNY">CNY ¥</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <!-- ── Left: Upload/Camera panel ── -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="dot dot-green"></div>
+        <span class="panel-title" id="pt-upload">レシート入力</span>
+      </div>
+      <div class="panel-body">
+
+        <!-- Input method tabs -->
+        <div class="input-tabs">
+          <!-- Upload tab -->
+          <label class="input-tab" id="tab-upload">
+            <input type="file" id="file-input" accept="image/*">
+            <span class="tab-icon">🖼️</span>
+            <span id="tab-upload-lbl">画像を選択</span>
+          </label>
+          <!-- Camera tab -->
+          <button class="input-tab" id="tab-camera" onclick="openCamera()">
+            <span class="tab-icon">📷</span>
+            <span id="tab-camera-lbl">カメラで撮影</span>
+          </button>
+        </div>
+
+        <!-- Preview -->
+        <div id="preview-wrap">
+          <img id="preview-img" src="" alt="preview">
+          <button class="preview-clear" onclick="clearPreview()" title="クリア">✕</button>
+        </div>
+
+        <!-- Loading -->
+        <div class="loading-bar" id="loading-bar"></div>
+        <div class="loading-text" id="loading-text">🤖 AIがレシートを解析中…</div>
+
+        <!-- Error -->
+        <div class="error-msg" id="error-msg"></div>
+
+        <!-- Analyze button -->
+        <button id="analyze-btn" onclick="analyzeReceipt()">✨ AIで解析する</button>
+
+      </div>
+    </div>
+
+    <!-- ── Right: Results panel ── -->
+    <div class="results-panel">
+      <div class="results-header">
+        <div class="results-left">
+          <div class="dot dot-purple"></div>
+          <span class="panel-title" id="pt-data">経費データ</span>
+        </div>
+        <div class="actions">
+          <button class="btn btn-ghost" id="btn-add" onclick="addRow()">＋ 行を追加</button>
+          <button class="btn btn-csv" onclick="downloadCSV()">⬇ CSV</button>
+          <button class="btn btn-xls" onclick="downloadExcel()">⬇ Excel</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th id="th-date">日付</th>
+              <th id="th-store">店舗・内容</th>
+              <th id="th-cat">カテゴリ</th>
+              <th id="th-amt">金額</th>
+              <th id="th-note">備考</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <tr id="empty-row"><td colspan="7">
+              <div class="empty-state">
+                <div class="icon">📋</div>
+                <p id="empty-txt">レシートをアップロード・撮影してAI解析するか<br>「行を追加」で手動入力してください</p>
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="summary" id="summary-strip" style="display:none">
+        <div class="summary-item">
+          <span class="summary-label" id="lbl-count">件数</span>
+          <span class="summary-value" id="count-val">0</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label" id="lbl-total">合計金額</span>
+          <span class="summary-value" id="total-val">¥0</span>
+        </div>
+        <span class="edit-hint" id="edit-hint">セルをクリックして編集</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Camera Modal ── -->
+<div id="camera-modal">
+  <video id="camera-video" autoplay playsinline muted></video>
+  <canvas id="camera-canvas"></canvas>
+  <div class="camera-controls">
+    <button class="cam-close-btn" id="cam-close-btn" onclick="closeCamera()">✕ キャンセル</button>
+    <button class="shutter-btn" onclick="capturePhoto()">📸</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── i18n ─────────────────────────────────────────────────────────────────────
+const T = {
+  ja: {
+    title: '経費精算 <span style="color:var(--accent)">System</span>',
+    sub: 'レシート写真をアップロード・撮影 → AIが自動解析 → Excel / CSV出力',
+    ptUpload: 'レシート入力', ptData: '経費データ',
+    tabUpload: '画像を選択', tabCamera: 'カメラで撮影',
+    loadingTxt: '🤖 AIがレシートを解析中…',
+    analyzeBtn: '✨ AIで解析する',
+    addBtn: '＋ 行を追加',
+    thDate: '日付', thStore: '店舗・内容', thCat: 'カテゴリ', thAmt: '金額', thNote: '備考',
+    emptyTxt: 'レシートをアップロード・撮影してAI解析するか<br>「行を追加」で手動入力してください',
+    lblCount: '件数', lblTotal: '合計金額', editHint: 'セルをクリックして編集',
+    lblCurrency: '通貨',
+    camCancelBtn: '✕ キャンセル',
+    cats: ['交通費','宿泊費','飲食費','接待交際費','消耗品費','通信費','会議費','書籍・研修費','その他'],
+    toastAnalyzed: n => `✅ ${n}件のデータを取得しました`,
+    toastEmpty: '⚠ データがありません',
+    toastCSV: '📥 CSVをダウンロードしました',
+    toastXLS: '📥 Excelをダウンロードしました',
+    toastCapture: '📸 撮影しました',
+    errFail: 'APIエラーが発生しました',
+    totalRow: '合計', filename: '経費精算',
+  },
+  en: {
+    title: 'Expense <span style="color:var(--accent)">Tracker</span>',
+    sub: 'Upload or capture receipt → AI auto-parses → Export Excel / CSV',
+    ptUpload: 'Receipt Input', ptData: 'Expense Data',
+    tabUpload: 'Select Image', tabCamera: 'Use Camera',
+    loadingTxt: '🤖 AI is analyzing your receipt…',
+    analyzeBtn: '✨ Analyze with AI',
+    addBtn: '+ Add Row',
+    thDate: 'Date', thStore: 'Store / Description', thCat: 'Category', thAmt: 'Amount', thNote: 'Notes',
+    emptyTxt: 'Upload or capture a receipt to auto-parse with AI,<br>or click "Add Row" to enter data manually.',
+    lblCount: 'Items', lblTotal: 'Total Amount', editHint: 'Click any cell to edit',
+    lblCurrency: 'Currency',
+    camCancelBtn: '✕ Cancel',
+    cats: ['Transportation','Accommodation','Meals','Entertainment','Supplies','Communication','Meeting','Training & Books','Other'],
+    toastAnalyzed: n => `✅ ${n} item(s) extracted`,
+    toastEmpty: '⚠ No data to export',
+    toastCSV: '📥 CSV downloaded',
+    toastXLS: '📥 Excel downloaded',
+    toastCapture: '📸 Photo captured',
+    errFail: 'API error occurred',
+    totalRow: 'Total', filename: 'expense_report',
+  }
+};
+
+let lang = 'ja';
+let rows = [];
+let currentImageBase64 = null;
+let currentMediaType = 'image/jpeg';
+let cameraStream = null;
+
+const CURRENCY_SYMBOLS = { JPY:'¥', USD:'$', EUR:'€', GBP:'£', CNY:'¥' };
+
+// ─── Lang ─────────────────────────────────────────────────────────────────────
+function setLang(l) {
+  lang = l;
+  document.getElementById('btn-ja').classList.toggle('active', l==='ja');
+  document.getElementById('btn-en').classList.toggle('active', l==='en');
+  applyLang();
+}
+
+function applyLang() {
+  const t = T[lang];
+  document.getElementById('h-title').innerHTML = t.title;
+  document.getElementById('h-sub').textContent = t.sub;
+  document.getElementById('pt-upload').textContent = t.ptUpload;
+  document.getElementById('pt-data').textContent = t.ptData;
+  document.getElementById('tab-upload-lbl').textContent = t.tabUpload;
+  document.getElementById('tab-camera-lbl').textContent = t.tabCamera;
+  document.getElementById('loading-text').textContent = t.loadingTxt;
+  const ab = document.getElementById('analyze-btn');
+  if (!ab.disabled) ab.textContent = t.analyzeBtn;
+  document.getElementById('btn-add').textContent = t.addBtn;
+  document.getElementById('th-date').textContent = t.thDate;
+  document.getElementById('th-store').textContent = t.thStore;
+  document.getElementById('th-cat').textContent = t.thCat;
+  document.getElementById('th-amt').textContent = t.thAmt;
+  document.getElementById('th-note').textContent = t.thNote;
+  document.getElementById('lbl-count').textContent = t.lblCount;
+  document.getElementById('lbl-total').textContent = t.lblTotal;
+  document.getElementById('edit-hint').textContent = t.editHint;
+  document.getElementById('lbl-currency').textContent = t.lblCurrency;
+  document.getElementById('cam-close-btn').textContent = t.camCancelBtn;
+  const emptyEl = document.getElementById('empty-txt');
+  if (emptyEl) emptyEl.innerHTML = t.emptyTxt;
+  rows.forEach(r => {
+    const noteEl = document.querySelector(`#row-${r.id} .note-cell`);
+    if (noteEl) noteEl.textContent = lang==='ja' ? (r.note_ja||'') : (r.note_en||'');
+    const sel = document.querySelector(`#row-${r.id} .cat-select`);
+    if (sel) {
+      const cur = lang==='ja' ? r.category_ja : r.category_en;
+      sel.innerHTML = T[lang].cats.map(c=>`<option ${c===cur?'selected':''}>${c}</option>`).join('');
+    }
+  });
+  updateSummary();
+}
+
+// ─── File input ───────────────────────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) loadFile(f);
+});
+
+function loadFile(file) {
+  currentMediaType = file.type || 'image/jpeg';
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;
+    currentImageBase64 = dataUrl.split(',')[1];
+    showPreview(dataUrl);
+  };
+  reader.readAsDataURL(file);
+}
+
+function showPreview(dataUrl) {
+  document.getElementById('preview-img').src = dataUrl;
+  document.getElementById('preview-wrap').style.display = 'block';
+  document.getElementById('analyze-btn').style.display = 'block';
+  document.getElementById('error-msg').style.display = 'none';
+}
+
+function clearPreview() {
+  currentImageBase64 = null;
+  document.getElementById('preview-wrap').style.display = 'none';
+  document.getElementById('analyze-btn').style.display = 'none';
+  document.getElementById('file-input').value = '';
+}
+
+// ─── Camera ───────────────────────────────────────────────────────────────────
+async function openCamera() {
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+    });
+    document.getElementById('camera-video').srcObject = cameraStream;
+    document.getElementById('camera-modal').classList.add('open');
+  } catch (err) {
+    showToast('⚠ カメラにアクセスできません: ' + err.message);
+  }
+}
+
+function closeCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+  document.getElementById('camera-modal').classList.remove('open');
+  document.getElementById('camera-video').srcObject = null;
+}
+
+function capturePhoto() {
+  const video = document.getElementById('camera-video');
+  const canvas = document.getElementById('camera-canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+  currentImageBase64 = dataUrl.split(',')[1];
+  currentMediaType = 'image/jpeg';
+  closeCamera();
+  showPreview(dataUrl);
+  showToast(T[lang].toastCapture);
+}
+
+// ─── Analyze ──────────────────────────────────────────────────────────────────
+async function analyzeReceipt() {
+  if (!currentImageBase64) return;
+  const t = T[lang];
+  const btn = document.getElementById('analyze-btn');
+  btn.disabled = true; btn.textContent = '…';
+  document.getElementById('loading-bar').classList.add('active');
+  document.getElementById('loading-text').classList.add('active');
+  document.getElementById('error-msg').style.display = 'none';
+
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageBase64: currentImageBase64,
+        mediaType: currentMediaType,
+        language: lang
+      })
+    });
+
+    let data;
+    const text = await res.text();
+
+    if (!res.ok) {
+      let errMsg = `HTTP ${res.status}`;
+      try { errMsg = JSON.parse(text).error || errMsg; } catch {}
+      throw new Error(errMsg);
+    }
+
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error('Invalid JSON response from server');
+    }
+
+    if (!Array.isArray(data)) throw new Error('Unexpected response format');
+
+    data.forEach(item => addRowData(item));
+    showToast(t.toastAnalyzed(data.length));
+
+  } catch (err) {
+    const errEl = document.getElementById('error-msg');
+    errEl.innerHTML = `<strong>${t.errFail}:</strong> ${err.message}`;
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = T[lang].analyzeBtn;
+    document.getElementById('loading-bar').classList.remove('active');
+    document.getElementById('loading-text').classList.remove('active');
+  }
+}
+
+// ─── Row management ───────────────────────────────────────────────────────────
+function addRowData(item = {}) {
+  const emptyRow = document.getElementById('empty-row');
+  if (emptyRow) emptyRow.remove();
+
+  const id = 'r' + Date.now() + Math.floor(Math.random() * 9999);
+  const row = {
+    id,
+    date: item.date || todayStr(),
+    store: item.store || '',
+    category_ja: item.category_ja || 'その他',
+    category_en: item.category_en || 'Other',
+    amount: item.amount || 0,
+    note_ja: item.note_ja || '',
+    note_en: item.note_en || ''
+  };
+  rows.push(row);
+  renderRow(row);
+  updateSummary();
+}
+
+function addRow() { addRowData(); }
+
+function renderRow(row) {
+  const tbody = document.getElementById('table-body');
+  const idx = rows.findIndex(r => r.id === row.id) + 1;
+  const t = T[lang];
+  const cat = lang==='ja' ? row.category_ja : row.category_en;
+  const note = lang==='ja' ? (row.note_ja||'') : (row.note_en||'');
+
+  const tr = document.createElement('tr');
+  tr.id = 'row-' + row.id;
+  tr.innerHTML = `
+    <td class="num-cell">${String(idx).padStart(2,'0')}</td>
+    <td contenteditable="true" oninput="updateField('${row.id}','date',this.textContent.trim())">${row.date}</td>
+    <td contenteditable="true" oninput="updateField('${row.id}','store',this.textContent.trim())">${row.store}</td>
+    <td>
+      <select class="cat-select" onchange="updateCat('${row.id}',this.value)">
+        ${t.cats.map(c=>`<option ${c===cat?'selected':''}>${c}</option>`).join('')}
+      </select>
+    </td>
+    <td contenteditable="true" class="amount-cell" oninput="updateField('${row.id}','amount',this.textContent.trim())">${row.amount}</td>
+    <td contenteditable="true" class="note-cell" oninput="updateNote('${row.id}',this.textContent.trim())">${note}</td>
+    <td><button class="icon-btn del" onclick="deleteRow('${row.id}')">🗑</button></td>
+  `;
+  tbody.appendChild(tr);
+  document.getElementById('summary-strip').style.display = 'flex';
+}
+
+function updateField(id, field, value) {
+  const r = rows.find(r => r.id === id);
+  if (!r) return;
+  if (field === 'amount') { r.amount = parseFloat(value.replace(/[^0-9.]/g,'')) || 0; updateSummary(); }
+  else r[field] = value;
+}
+
+function updateCat(id, value) {
+  const r = rows.find(r => r.id === id);
+  if (!r) return;
+  if (lang === 'ja') {
+    r.category_ja = value;
+    const i = T.ja.cats.indexOf(value);
+    if (i >= 0) r.category_en = T.en.cats[i];
+  } else {
+    r.category_en = value;
+    const i = T.en.cats.indexOf(value);
+    if (i >= 0) r.category_ja = T.ja.cats[i];
+  }
+}
+
+function updateNote(id, value) {
+  const r = rows.find(r => r.id === id);
+  if (!r) return;
+  if (lang === 'ja') r.note_ja = value; else r.note_en = value;
+}
+
+function deleteRow(id) {
+  rows = rows.filter(r => r.id !== id);
+  document.getElementById('row-' + id)?.remove();
+  if (!rows.length) {
+    document.getElementById('table-body').innerHTML = `<tr id="empty-row"><td colspan="7"><div class="empty-state"><div class="icon">📋</div><p id="empty-txt">${T[lang].emptyTxt}</p></div></td></tr>`;
+    document.getElementById('summary-strip').style.display = 'none';
+  } else updateSummary();
+}
+
+function updateSummary() {
+  const total = rows.reduce((s,r) => s + (parseFloat(r.amount)||0), 0);
+  const sym = CURRENCY_SYMBOLS[document.getElementById('currency-select').value] || '¥';
+  document.getElementById('count-val').textContent = rows.length + (lang==='ja' ? '件' : '');
+  document.getElementById('total-val').textContent = sym + total.toLocaleString();
+}
+
+// ─── Export ───────────────────────────────────────────────────────────────────
+function getExportRows() {
+  return rows.map((r,i) => ({
+    no: i+1, date: r.date, store: r.store,
+    category: lang==='ja' ? r.category_ja : r.category_en,
+    amount: r.amount,
+    note: lang==='ja' ? (r.note_ja||'') : (r.note_en||'')
+  }));
+}
+
+function downloadCSV() {
+  const t = T[lang];
+  if (!rows.length) { showToast(t.toastEmpty); return; }
+  const cur = document.getElementById('currency-select').value;
+  const headers = ['No', t.thDate, t.thStore, t.thCat, `${t.thAmt} (${cur})`, t.thNote];
+  const data = getExportRows();
+  const csv = '\uFEFF' + [headers, ...data.map(r=>[r.no,r.date,r.store,r.category,r.amount,r.note])]
+    .map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  triggerDownload(t.filename + '_' + todayStr() + '.csv', csv, 'text/csv;charset=utf-8');
+  showToast(t.toastCSV);
+}
+
+function downloadExcel() {
+  const t = T[lang];
+  if (!rows.length) { showToast(t.toastEmpty); return; }
+  const cur = document.getElementById('currency-select').value;
+  const headers = ['No', t.thDate, t.thStore, t.thCat, `${t.thAmt} (${cur})`, t.thNote];
+  const data = getExportRows();
+  const total = data.reduce((s,r) => s+(parseFloat(r.amount)||0), 0);
+  const cell = v => `<td style="border:1px solid #ddd;padding:7px">${v}</td>`;
+  const hcell = v => `<th style="background:#1a3a2a;color:#4fffb0;font-weight:bold;border:1px solid #aaa;padding:7px">${v}</th>`;
+  let tbl = `<table><tr>${headers.map(hcell).join('')}</tr>`;
+  data.forEach(r => { tbl += `<tr>${[r.no,r.date,r.store,r.category,r.amount,r.note].map(cell).join('')}</tr>`; });
+  tbl += `<tr><td colspan="4" style="font-weight:bold;text-align:right;border:1px solid #ddd;padding:7px">${t.totalRow}</td><td style="font-weight:bold;border:1px solid #ddd;padding:7px">${total.toLocaleString()}</td><td style="border:1px solid #ddd;padding:7px"></td></tr></table>`;
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><meta name="ProgId" content="Excel.Sheet"></head><body>${tbl}</body></html>`;
+  triggerDownload(t.filename + '_' + todayStr() + '.xls', '\uFEFF' + html, 'application/vnd.ms-excel;charset=utf-8');
+  showToast(t.toastXLS);
+}
+
+function triggerDownload(filename, content, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function todayStr() { return new Date().toISOString().slice(0,10); }
+
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>
