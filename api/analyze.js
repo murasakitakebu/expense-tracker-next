@@ -31,7 +31,6 @@ async function saveToNotion(item, notionKey, databaseId) {
   if (!res.ok) {
     const err = await res.text();
     console.error("Notion save error:", err);
-    // Don't throw — saving to Notion is best-effort
   }
   return res.ok;
 }
@@ -101,10 +100,18 @@ function categoryEnToJa(en) {
   return CAT_EN_TO_JA[en] || "その他";
 }
 
-// ── Main handler ────────────────────────────────────────────────────────────
-exports.handler = async (event) => {
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 204, headers: CORS_HEADERS, body: "" };
+// ── Vercel handler ───────────────────────────────────────────────────────────
+export default async function handler(req, res) {
+  // CORS preflight
+  if (req.method === "OPTIONS") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    return res.status(204).end();
+  }
+
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -112,14 +119,12 @@ exports.handler = async (event) => {
   const NOTION_DATABASE_ID = process.env.NOTION_DATABASE_ID;
 
   if (!ANTHROPIC_API_KEY) {
-    return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ error: "ANTHROPIC_API_KEY not set" }) };
+    return res.status(500).json({ error: "ANTHROPIC_API_KEY not set" });
   }
 
-  let body;
-  try {
-    body = JSON.parse(event.body);
-  } catch {
-    return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: "Invalid JSON" }) };
+  const body = req.body;
+  if (!body) {
+    return res.status(400).json({ error: "Invalid JSON" });
   }
 
   const { action } = body;
@@ -127,13 +132,13 @@ exports.handler = async (event) => {
   // ── Action: fetch saved rows from Notion ──
   if (action === "fetch") {
     if (!NOTION_API_KEY || !NOTION_DATABASE_ID) {
-      return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify([]) };
+      return res.status(200).json([]);
     }
     try {
       const rows = await fetchFromNotion(NOTION_API_KEY, NOTION_DATABASE_ID);
-      return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify(rows) };
+      return res.status(200).json(rows);
     } catch (err) {
-      return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ error: err.message }) };
+      return res.status(500).json({ error: err.message });
     }
   }
 
@@ -141,16 +146,16 @@ exports.handler = async (event) => {
   if (action === "delete") {
     const { notion_id } = body;
     if (!NOTION_API_KEY || !notion_id) {
-      return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify({ ok: true }) };
+      return res.status(200).json({ ok: true });
     }
     await deleteFromNotion(notion_id, NOTION_API_KEY);
-    return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify({ ok: true }) };
+    return res.status(200).json({ ok: true });
   }
 
   // ── Action: analyze receipt image (default) ──
   const { imageBase64, mediaType } = body;
   if (!imageBase64) {
-    return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: "imageBase64 is required" }) };
+    return res.status(400).json({ error: "imageBase64 is required" });
   }
 
   const today = new Date().toISOString().slice(0, 10);
@@ -200,7 +205,7 @@ Rules:
 
     if (!aiRes.ok) {
       const errText = await aiRes.text();
-      return { statusCode: aiRes.status, headers: CORS_HEADERS, body: JSON.stringify({ error: `Anthropic error: ${errText}` }) };
+      return res.status(aiRes.status).json({ error: `Anthropic error: ${errText}` });
     }
 
     const aiData = await aiRes.json();
@@ -213,9 +218,9 @@ Rules:
       await Promise.allSettled(parsed.map(item => saveToNotion(item, NOTION_API_KEY, NOTION_DATABASE_ID)));
     }
 
-    return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify(parsed) };
+    return res.status(200).json(parsed);
 
   } catch (err) {
-    return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ error: err.message }) };
+    return res.status(500).json({ error: err.message });
   }
-};
+}
