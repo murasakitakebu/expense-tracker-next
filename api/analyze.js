@@ -15,6 +15,9 @@ async function saveToNotion(item, notionKey, databaseId) {
       Amount: { number: parseFloat(item.amount) || 0 },
       Currency: { select: { name: item.currency || "JPY" } },
       Note: { rich_text: [{ text: { content: item.note_en || "" } }] },
+      ...(item.paymentMethod ? { PaymentMethod: { select: { name: item.paymentMethod } } } : {}),
+      ...(item.costCenter ? { CostCenter: { select: { name: item.costCenter } } } : {}),
+      Remark: { rich_text: [{ text: { content: item.remark || "" } }] },
     },
   };
 
@@ -66,6 +69,9 @@ async function fetchFromNotion(notionKey, databaseId) {
       currency: p.Currency?.select?.name || "JPY",
       note_en: p.Note?.rich_text?.[0]?.text?.content || "",
       note_ja: p.Note?.rich_text?.[0]?.text?.content || "",
+      paymentMethod: p.PaymentMethod?.select?.name || "",
+      costCenter: p.CostCenter?.select?.name || "",
+      remark: p.Remark?.rich_text?.[0]?.text?.content || "",
     };
   });
 }
@@ -153,7 +159,7 @@ export default async function handler(req, res) {
   }
 
   // ── Action: analyze receipt image (default) ──
-  const { imageBase64, mediaType } = body;
+  const { imageBase64, mediaType, paymentMethod, costCenter, remark } = body;
   if (!imageBase64) {
     return res.status(400).json({ error: "imageBase64 is required" });
   }
@@ -215,10 +221,10 @@ Rules:
 
     // Save each row to Notion in parallel (best-effort)
     if (NOTION_API_KEY && NOTION_DATABASE_ID) {
-      await Promise.allSettled(parsed.map(item => saveToNotion(item, NOTION_API_KEY, NOTION_DATABASE_ID)));
+      await Promise.allSettled(parsed.map(item => saveToNotion({ ...item, paymentMethod: paymentMethod || '', costCenter: costCenter || '', remark: remark || '' }, NOTION_API_KEY, NOTION_DATABASE_ID)));
     }
 
-    return res.status(200).json(parsed);
+    return res.status(200).json(parsed.map(item => ({ ...item, paymentMethod: paymentMethod || '', costCenter: costCenter || '', remark: remark || '' })));
 
   } catch (err) {
     return res.status(500).json({ error: err.message });

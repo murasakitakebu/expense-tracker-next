@@ -142,6 +142,20 @@
   .empty-state .icon { font-size: 36px; margin-bottom: 10px; }
   .empty-state p { font-size: 13px; line-height: 1.6; }
 
+  /* ── Selection flow ── */
+  #selection-flow { margin-bottom: 14px; }
+  .sel-divider { height: 1px; background: var(--border); margin: 10px 0 14px; }
+  .sel-step { margin-bottom: 14px; }
+  .sel-step-label { font-size: 10px; font-weight: 500; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .sel-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .sel-btn { flex: 1; min-width: 70px; padding: 9px 8px; background: var(--surface2); border: 1.5px solid var(--border); border-radius: 8px; color: var(--muted); font-family: 'Noto Sans JP', sans-serif; font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .sel-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(79,255,176,0.04); }
+  .sel-btn.selected { border-color: var(--accent); color: #000; background: var(--accent); font-weight: 700; }
+  .remark-textarea { width: 100%; min-height: 72px; background: var(--surface2); border: 1.5px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 12px; padding: 10px 12px; resize: vertical; line-height: 1.5; transition: border-color 0.15s; margin-bottom: 10px; }
+  .remark-textarea:focus { outline: none; border-color: rgba(79,255,176,0.4); background: rgba(79,255,176,0.02); }
+  .remark-textarea::placeholder { color: var(--muted); }
+  select.pm-select { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 4px 6px; border-radius: 6px; font-size: 11px; font-family: 'Noto Sans JP', sans-serif; max-width: 130px; }
+
   /* ── Toast ── */
   .toast { position: fixed; bottom: 28px; right: 24px; background: var(--surface2); border: 1px solid var(--border); padding: 11px 16px; border-radius: 10px; font-size: 13px; box-shadow: var(--shadow); transform: translateY(70px); opacity: 0; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); z-index: 999; max-width: 300px; }
   .toast.show { transform: translateY(0); opacity: 1; }
@@ -197,6 +211,29 @@
           <img id="preview-img" src="" alt="preview">
           <button class="preview-clear" onclick="clearPreview()">✕</button>
         </div>
+        <div id="selection-flow" style="display:none">
+          <div class="sel-divider"></div>
+          <div class="sel-step" id="step-payment">
+            <div class="sel-step-label" id="lbl-payment">支払い方法</div>
+            <div class="sel-btns">
+              <button class="sel-btn" onclick="selectPaymentMethod('MSE Corporate Card')">MSE Corporate Card</button>
+              <button class="sel-btn" onclick="selectPaymentMethod('Personal Credit Card')">Personal Credit Card</button>
+              <button class="sel-btn" onclick="selectPaymentMethod('Cash')">Cash</button>
+            </div>
+          </div>
+          <div class="sel-step" id="step-cost" style="display:none">
+            <div class="sel-step-label" id="lbl-cost">コストセンター</div>
+            <div class="sel-btns">
+              <button class="sel-btn" onclick="selectCostCenter('MSE')">MSE</button>
+              <button class="sel-btn" onclick="selectCostCenter('MJ')">MJ</button>
+              <button class="sel-btn" onclick="selectCostCenter('Other')">Other</button>
+            </div>
+          </div>
+          <div class="sel-step" id="step-remark" style="display:none">
+            <div class="sel-step-label" id="lbl-remark">Remark（任意）</div>
+            <textarea id="remark-input" class="remark-textarea" placeholder="レシートに関するメモを入力…" oninput="currentRemark=this.value"></textarea>
+          </div>
+        </div>
         <div class="loading-bar" id="loading-bar"></div>
         <div class="loading-text" id="loading-text">🤖 AIがレシートを解析中…</div>
         <div class="error-msg" id="error-msg"></div>
@@ -229,12 +266,15 @@
               <th id="th-cat">カテゴリ</th>
               <th id="th-cur">通貨</th>
               <th id="th-amt">金額</th>
+              <th id="th-payment">支払方法</th>
+              <th id="th-cc">CC</th>
               <th id="th-note">備考</th>
+              <th id="th-remark">Remark</th>
               <th></th>
             </tr>
           </thead>
           <tbody id="table-body">
-            <tr id="empty-row"><td colspan="8">
+            <tr id="empty-row"><td colspan="11">
               <div class="empty-state">
                 <div class="icon">📋</div>
                 <p id="empty-txt">レシートをアップロード・撮影してAI解析するか<br>「行を追加」で手動入力してください</p>
@@ -288,6 +328,9 @@ const T = {
     notionOk: 'Notionに接続済み', notionErr: 'Notion未接続', notionLoading: '読込中…',
     totalRow: '合計', filename: '経費精算',
     subtotalLabel: cur => `${cur} 小計`,
+    stepPayment: '支払い方法', stepCostCenter: 'コストセンター', stepRemark: 'Remark（任意）',
+    remarkPlaceholder: 'レシートに関するメモを入力…',
+    thPayment: '支払方法', thCC: 'CC', thRemark: 'Remark',
   },
   en: {
     title: 'Expense <span style="color:var(--accent)">Tracker</span>',
@@ -310,6 +353,9 @@ const T = {
     notionOk: 'Connected to Notion', notionErr: 'Notion not connected', notionLoading: 'Loading…',
     totalRow: 'Total', filename: 'expense_report',
     subtotalLabel: cur => `${cur} Subtotal`,
+    stepPayment: 'Payment Method', stepCostCenter: 'Cost Center', stepRemark: 'Remark (Optional)',
+    remarkPlaceholder: 'Add a note about this receipt…',
+    thPayment: 'Payment', thCC: 'Cost Center', thRemark: 'Remark',
   }
 };
 
@@ -323,6 +369,9 @@ let rows = [];
 let currentImageBase64 = null;
 let currentMediaType = 'image/jpeg';
 let cameraStream = null;
+let currentPaymentMethod = null;
+let currentCostCenter = null;
+let currentRemark = '';
 
 // ─── Lang ─────────────────────────────────────────────────────────────────────
 function setLang(l) {
@@ -354,6 +403,20 @@ function applyLang() {
   document.getElementById('cam-close-btn').textContent = t.camCancel;
   const emptyEl = document.getElementById('empty-txt');
   if (emptyEl) emptyEl.innerHTML = t.emptyTxt;
+  const lblPayment = document.getElementById('lbl-payment');
+  if (lblPayment) lblPayment.textContent = t.stepPayment;
+  const lblCost = document.getElementById('lbl-cost');
+  if (lblCost) lblCost.textContent = t.stepCostCenter;
+  const lblRemark = document.getElementById('lbl-remark');
+  if (lblRemark) lblRemark.textContent = t.stepRemark;
+  const remarkInput = document.getElementById('remark-input');
+  if (remarkInput) remarkInput.placeholder = t.remarkPlaceholder;
+  const thPayment = document.getElementById('th-payment');
+  if (thPayment) thPayment.textContent = t.thPayment;
+  const thCC = document.getElementById('th-cc');
+  if (thCC) thCC.textContent = t.thCC;
+  const thRemark = document.getElementById('th-remark');
+  if (thRemark) thRemark.textContent = t.thRemark;
   rows.forEach(r => {
     const noteEl = document.querySelector(`#row-${r.id} .note-cell`);
     if (noteEl) noteEl.textContent = lang==='ja' ? (r.note_ja||'') : (r.note_en||'');
@@ -420,15 +483,39 @@ function loadFile(file) {
 function showPreview(dataUrl) {
   document.getElementById('preview-img').src = dataUrl;
   document.getElementById('preview-wrap').style.display = 'block';
-  document.getElementById('analyze-btn').style.display = 'block';
+  document.getElementById('selection-flow').style.display = 'block';
+  document.getElementById('step-payment').style.display = 'block';
+  document.getElementById('step-cost').style.display = 'none';
+  document.getElementById('step-remark').style.display = 'none';
+  document.getElementById('analyze-btn').style.display = 'none';
   document.getElementById('error-msg').style.display = 'none';
+  currentPaymentMethod = null; currentCostCenter = null; currentRemark = '';
+  document.querySelectorAll('.sel-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('remark-input').value = '';
 }
 
 function clearPreview() {
   currentImageBase64 = null;
+  currentPaymentMethod = null; currentCostCenter = null; currentRemark = '';
   document.getElementById('preview-wrap').style.display = 'none';
+  document.getElementById('selection-flow').style.display = 'none';
   document.getElementById('analyze-btn').style.display = 'none';
   document.getElementById('file-input').value = '';
+}
+
+function selectPaymentMethod(value) {
+  currentPaymentMethod = value;
+  document.querySelectorAll('#step-payment .sel-btn').forEach(b =>
+    b.classList.toggle('selected', b.textContent.trim() === value));
+  document.getElementById('step-cost').style.display = 'block';
+}
+
+function selectCostCenter(value) {
+  currentCostCenter = value;
+  document.querySelectorAll('#step-cost .sel-btn').forEach(b =>
+    b.classList.toggle('selected', b.textContent.trim() === value));
+  document.getElementById('step-remark').style.display = 'block';
+  document.getElementById('analyze-btn').style.display = 'block';
 }
 
 // ─── Camera ───────────────────────────────────────────────────────────────────
@@ -477,7 +564,7 @@ async function analyzeReceipt() {
     const res = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'analyze', imageBase64: currentImageBase64, mediaType: currentMediaType })
+      body: JSON.stringify({ action: 'analyze', imageBase64: currentImageBase64, mediaType: currentMediaType, paymentMethod: currentPaymentMethod, costCenter: currentCostCenter, remark: currentRemark })
     });
     const text = await res.text();
     if (!res.ok) {
@@ -487,7 +574,7 @@ async function analyzeReceipt() {
     }
     const data = JSON.parse(text);
     if (!Array.isArray(data)) throw new Error('Unexpected response');
-    data.forEach(item => addRowData(item, true));
+    data.forEach(item => addRowData({ ...item, paymentMethod: currentPaymentMethod || '', costCenter: currentCostCenter || '', remark: currentRemark || '' }, true));
     setNotionStatus('ok');
     showToast(t.toastAnalyzed(data.length));
   } catch (err) {
@@ -521,6 +608,9 @@ function addRowData(item = {}, savedToNotion = false) {
     amount: item.amount || 0,
     note_ja: item.note_ja || item.note_en || '',
     note_en: item.note_en || item.note_ja || '',
+    paymentMethod: item.paymentMethod || '',
+    costCenter: item.costCenter || '',
+    remark: item.remark || '',
     savedToNotion,
   };
   rows.push(row);
@@ -539,6 +629,8 @@ function renderRow(row) {
 
   const tr = document.createElement('tr');
   tr.id = 'row-' + row.id;
+  const PM_OPTIONS = ['', 'MSE Corporate Card', 'Personal Credit Card', 'Cash'];
+  const CC_OPTIONS = ['', 'MSE', 'MJ', 'Other'];
   tr.innerHTML = `
     <td class="num-cell">${String(idx).padStart(2,'0')}</td>
     <td contenteditable="true" oninput="updateField('${row.id}','date',this.textContent.trim())">${row.date}</td>
@@ -554,7 +646,18 @@ function renderRow(row) {
       </select>
     </td>
     <td contenteditable="true" class="amount-cell" oninput="updateField('${row.id}','amount',this.textContent.trim())">${row.amount}</td>
+    <td>
+      <select class="pm-select" onchange="updateField('${row.id}','paymentMethod',this.value)">
+        ${PM_OPTIONS.map(c=>`<option ${c===row.paymentMethod?'selected':''}>${c}</option>`).join('')}
+      </select>
+    </td>
+    <td>
+      <select class="cat-select" onchange="updateField('${row.id}','costCenter',this.value)">
+        ${CC_OPTIONS.map(c=>`<option ${c===row.costCenter?'selected':''}>${c}</option>`).join('')}
+      </select>
+    </td>
     <td contenteditable="true" class="note-cell" oninput="updateNote('${row.id}',this.textContent.trim())">${note}</td>
+    <td contenteditable="true" class="remark-cell" oninput="updateField('${row.id}','remark',this.textContent.trim())">${row.remark||''}</td>
     <td>
       ${row.savedToNotion ? '<span class="notion-saved" title="Notionに保存済">✓N</span>' : ''}
       <button class="icon-btn del" onclick="deleteRow('${row.id}')">🗑</button>
@@ -597,7 +700,7 @@ async function deleteRow(id) {
   rows = rows.filter(r => r.id !== id);
   document.getElementById('row-' + id)?.remove();
   if (!rows.length) {
-    document.getElementById('table-body').innerHTML = `<tr id="empty-row"><td colspan="8"><div class="empty-state"><div class="icon">📋</div><p id="empty-txt">${T[lang].emptyTxt}</p></div></td></tr>`;
+    document.getElementById('table-body').innerHTML = `<tr id="empty-row"><td colspan="11"><div class="empty-state"><div class="icon">📋</div><p id="empty-txt">${T[lang].emptyTxt}</p></div></td></tr>`;
     document.getElementById('subtotals-strip').style.display = 'none';
   } else updateSubtotals();
   showToast(T[lang].toastDeleted);
@@ -629,16 +732,19 @@ function getExportRows() {
     category: lang==='ja' ? r.category_ja : r.category_en,
     currency: r.currency,
     amount: r.amount,
-    note: lang==='ja' ? (r.note_ja||'') : (r.note_en||'')
+    paymentMethod: r.paymentMethod || '',
+    costCenter: r.costCenter || '',
+    note: lang==='ja' ? (r.note_ja||'') : (r.note_en||''),
+    remark: r.remark || ''
   }));
 }
 
 function downloadCSV() {
   const t = T[lang];
   if (!rows.length) { showToast(t.toastEmpty); return; }
-  const headers = ['No', t.thDate, t.thStore, t.thCat, t.thCur, t.thAmt, t.thNote];
+  const headers = ['No', t.thDate, t.thStore, t.thCat, t.thCur, t.thAmt, t.thPayment, t.thCC, t.thNote, t.thRemark];
   const data = getExportRows();
-  const csv = '\uFEFF' + [headers, ...data.map(r=>[r.no,r.date,r.store,r.category,r.currency,r.amount,r.note])]
+  const csv = '\uFEFF' + [headers, ...data.map(r=>[r.no,r.date,r.store,r.category,r.currency,r.amount,r.paymentMethod,r.costCenter,r.note,r.remark])]
     .map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   triggerDownload(t.filename + '_' + todayStr() + '.csv', csv, 'text/csv;charset=utf-8');
   showToast(t.toastCSV);
@@ -647,7 +753,7 @@ function downloadCSV() {
 function downloadExcel() {
   const t = T[lang];
   if (!rows.length) { showToast(t.toastEmpty); return; }
-  const headers = ['No', t.thDate, t.thStore, t.thCat, t.thCur, t.thAmt, t.thNote];
+  const headers = ['No', t.thDate, t.thStore, t.thCat, t.thCur, t.thAmt, t.thPayment, t.thCC, t.thNote, t.thRemark];
   const data = getExportRows();
 
   // Subtotal rows per currency
@@ -657,9 +763,9 @@ function downloadExcel() {
   const cell = v => `<td style="border:1px solid #ddd;padding:7px">${v}</td>`;
   const hcell = v => `<th style="background:#1a3a2a;color:#4fffb0;font-weight:bold;border:1px solid #aaa;padding:7px">${v}</th>`;
   let tbl = `<table><tr>${headers.map(hcell).join('')}</tr>`;
-  data.forEach(r => { tbl += `<tr>${[r.no,r.date,r.store,r.category,r.currency,r.amount,r.note].map(cell).join('')}</tr>`; });
+  data.forEach(r => { tbl += `<tr>${[r.no,r.date,r.store,r.category,r.currency,r.amount,r.paymentMethod,r.costCenter,r.note,r.remark].map(cell).join('')}</tr>`; });
   Object.entries(totals).forEach(([cur, amt]) => {
-    tbl += `<tr><td colspan="5" style="font-weight:bold;text-align:right;border:1px solid #ddd;padding:7px">${t.totalRow} (${cur})</td><td style="font-weight:bold;border:1px solid #ddd;padding:7px">${amt.toLocaleString()}</td><td style="border:1px solid #ddd;padding:7px"></td></tr>`;
+    tbl += `<tr><td colspan="5" style="font-weight:bold;text-align:right;border:1px solid #ddd;padding:7px">${t.totalRow} (${cur})</td><td style="font-weight:bold;border:1px solid #ddd;padding:7px">${amt.toLocaleString()}</td><td colspan="4" style="border:1px solid #ddd;padding:7px"></td></tr>`;
   });
   tbl += '</table>';
   const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><meta name="ProgId" content="Excel.Sheet"></head><body>${tbl}</body></html>`;
