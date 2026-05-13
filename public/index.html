@@ -164,6 +164,24 @@
     h1 { font-size: 22px; }
     .app { padding: 24px 14px 60px; }
   }
+
+  /* ── Login ── */
+  .login-modal { position: fixed; inset: 0; background: var(--bg); z-index: 2000; display: flex; align-items: center; justify-content: center; }
+  .login-modal.hidden { display: none; }
+  .login-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 44px 36px; width: min(380px, 90vw); display: flex; flex-direction: column; gap: 18px; align-items: center; text-align: center; box-shadow: var(--shadow); }
+  .login-box h2 { font-size: 22px; font-weight: 700; }
+  .login-box h2 span { color: var(--accent); }
+  .login-sub { color: var(--muted); font-size: 13px; line-height: 1.5; }
+  .login-input { width: 100%; padding: 13px 16px; background: var(--surface2); border: 1.5px solid var(--border); border-radius: 10px; color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 15px; outline: none; text-align: center; transition: border-color 0.15s; }
+  .login-input:focus { border-color: rgba(79,255,176,0.5); }
+  .login-btn { width: 100%; padding: 14px; background: var(--accent); color: #000; border: none; border-radius: 10px; font-family: 'Noto Sans JP', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+  .login-btn:hover { background: #6fffc4; transform: translateY(-1px); }
+
+  /* ── User badge ── */
+  .user-badge { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 100px; padding: 5px 5px 5px 12px; }
+  .user-name { font-size: 12px; font-weight: 500; color: var(--accent); font-family: 'Space Mono', monospace; }
+  .logout-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); font-family: 'Noto Sans JP', sans-serif; font-size: 11px; padding: 4px 10px; border-radius: 100px; cursor: pointer; transition: all 0.15s; }
+  .logout-btn:hover { color: var(--danger); border-color: var(--danger); }
 </style>
 </head>
 <body>
@@ -182,6 +200,10 @@
       <div class="notion-status">
         <div class="notion-dot" id="notion-dot"></div>
         <span id="notion-status-txt">Notion</span>
+      </div>
+      <div class="user-badge" id="user-badge" style="display:none">
+        <span class="user-name" id="user-name-display"></span>
+        <button class="logout-btn" id="logout-btn" onclick="logout()">Sign out</button>
       </div>
     </div>
   </header>
@@ -216,7 +238,7 @@
           <div class="sel-step" id="step-payment">
             <div class="sel-step-label" id="lbl-payment">支払い方法</div>
             <div class="sel-btns">
-              <button class="sel-btn" onclick="selectPaymentMethod('MSE')">MSE</button>
+              <button class="sel-btn" onclick="selectPaymentMethod('Corporate')">Corporate</button>
               <button class="sel-btn" onclick="selectPaymentMethod('Personal')">Personal</button>
               <button class="sel-btn" onclick="selectPaymentMethod('Cash')">Cash</button>
             </div>
@@ -292,6 +314,18 @@
   </div>
 </div>
 
+<!-- Login Modal -->
+<div id="login-modal" class="login-modal">
+  <div class="login-box">
+    <div class="logo-mark">EXPENSE</div>
+    <h2 id="login-title">経費精算 <span>System</span></h2>
+    <p class="login-sub" id="login-sub">ユーザー名を入力して開始してください</p>
+    <input type="text" id="login-input" class="login-input" placeholder="お名前" autocomplete="name"
+      onkeydown="if(event.key==='Enter')login()">
+    <button class="login-btn" id="login-btn" onclick="login()">開始する →</button>
+  </div>
+</div>
+
 <!-- Camera Modal -->
 <div id="camera-modal">
   <div class="camera-controls">
@@ -331,6 +365,11 @@ const T = {
     stepPayment: '支払い方法', stepCostCenter: 'コストセンター', stepRemark: 'Remark（任意）',
     remarkPlaceholder: 'レシートに関するメモを入力…',
     thPayment: '支払方法', thCC: 'CC', thRemark: 'Remark',
+    loginTitle: '経費精算 <span style="color:var(--accent)">System</span>',
+    loginSub: 'ユーザー名を入力して開始してください',
+    loginPlaceholder: 'お名前',
+    loginBtn: '開始する →',
+    logoutBtn: 'ログアウト',
   },
   en: {
     title: 'Expense <span style="color:var(--accent)">Tracker</span>',
@@ -356,6 +395,11 @@ const T = {
     stepPayment: 'Payment Method', stepCostCenter: 'Cost Center', stepRemark: 'Remark (Optional)',
     remarkPlaceholder: 'Add a note about this receipt…',
     thPayment: 'Payment', thCC: 'Cost Center', thRemark: 'Remark',
+    loginTitle: 'Expense <span style="color:var(--accent)">Tracker</span>',
+    loginSub: 'Enter your name to start',
+    loginPlaceholder: 'Your name',
+    loginBtn: 'Start →',
+    logoutBtn: 'Sign out',
   }
 };
 
@@ -372,6 +416,32 @@ let cameraStream = null;
 let currentPaymentMethod = null;
 let currentCostCenter = null;
 let currentRemark = '';
+let currentUser = null;
+
+// ─── Login / Logout ───────────────────────────────────────────────────────────
+function login() {
+  const name = document.getElementById('login-input').value.trim();
+  if (!name) { document.getElementById('login-input').focus(); return; }
+  currentUser = name;
+  localStorage.setItem('expense_user', name);
+  document.getElementById('login-modal').classList.add('hidden');
+  document.getElementById('user-name-display').textContent = name;
+  document.getElementById('user-badge').style.display = 'flex';
+  setNotionStatus('loading');
+  loadFromNotion();
+}
+
+function logout() {
+  currentUser = null;
+  localStorage.removeItem('expense_user');
+  rows = [];
+  const tbody = document.getElementById('table-body');
+  tbody.innerHTML = `<tr id="empty-row"><td colspan="11"><div class="empty-state"><div class="icon">📋</div><p id="empty-txt">${T[lang].emptyTxt}</p></div></td></tr>`;
+  document.getElementById('subtotals-strip').style.display = 'none';
+  document.getElementById('user-badge').style.display = 'none';
+  document.getElementById('login-input').value = '';
+  document.getElementById('login-modal').classList.remove('hidden');
+}
 
 // ─── Lang ─────────────────────────────────────────────────────────────────────
 function setLang(l) {
@@ -417,6 +487,16 @@ function applyLang() {
   if (thCC) thCC.textContent = t.thCC;
   const thRemark = document.getElementById('th-remark');
   if (thRemark) thRemark.textContent = t.thRemark;
+  const loginTitle = document.getElementById('login-title');
+  if (loginTitle) loginTitle.innerHTML = t.loginTitle;
+  const loginSub = document.getElementById('login-sub');
+  if (loginSub) loginSub.textContent = t.loginSub;
+  const loginInputEl = document.getElementById('login-input');
+  if (loginInputEl) loginInputEl.placeholder = t.loginPlaceholder;
+  const loginBtnEl = document.getElementById('login-btn');
+  if (loginBtnEl) loginBtnEl.textContent = t.loginBtn;
+  const logoutBtnEl = document.getElementById('logout-btn');
+  if (logoutBtnEl) logoutBtnEl.textContent = t.logoutBtn;
   rows.forEach(r => {
     const noteEl = document.querySelector(`#row-${r.id} .note-cell`);
     if (noteEl) noteEl.textContent = lang==='ja' ? (r.note_ja||'') : (r.note_en||'');
@@ -444,7 +524,7 @@ async function loadFromNotion() {
     const res = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'fetch' })
+      body: JSON.stringify({ action: 'fetch', user: currentUser })
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
@@ -564,7 +644,7 @@ async function analyzeReceipt() {
     const res = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'analyze', imageBase64: currentImageBase64, mediaType: currentMediaType, paymentMethod: currentPaymentMethod, costCenter: currentCostCenter, remark: currentRemark })
+      body: JSON.stringify({ action: 'analyze', imageBase64: currentImageBase64, mediaType: currentMediaType, paymentMethod: currentPaymentMethod, costCenter: currentCostCenter, remark: currentRemark, user: currentUser })
     });
     const text = await res.text();
     if (!res.ok) {
@@ -629,7 +709,7 @@ function renderRow(row) {
 
   const tr = document.createElement('tr');
   tr.id = 'row-' + row.id;
-  const PM_OPTIONS = ['', 'MSE', 'Personal', 'Cash'];
+  const PM_OPTIONS = ['', 'Corporate', 'Personal', 'Cash'];
   const CC_OPTIONS = ['', 'MSE', 'MJ', 'Other'];
   tr.innerHTML = `
     <td class="num-cell">${String(idx).padStart(2,'0')}</td>
@@ -790,8 +870,16 @@ function showToast(msg) {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
-  setNotionStatus('loading');
-  loadFromNotion();
+  const savedUser = localStorage.getItem('expense_user');
+  if (savedUser) {
+    currentUser = savedUser;
+    document.getElementById('user-name-display').textContent = savedUser;
+    document.getElementById('user-badge').style.display = 'flex';
+    document.getElementById('login-modal').classList.add('hidden');
+    setNotionStatus('loading');
+    loadFromNotion();
+  }
+  // login modal stays visible if no saved user
 });
 </script>
 </body>

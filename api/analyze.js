@@ -18,6 +18,7 @@ async function saveToNotion(item, notionKey, databaseId) {
       ...(item.paymentMethod ? { PaymentMethod: { select: { name: item.paymentMethod } } } : {}),
       ...(item.costCenter ? { CostCenter: { select: { name: item.costCenter } } } : {}),
       Remark: { rich_text: [{ text: { content: item.remark || "" } }] },
+      ...(item.user ? { User: { rich_text: [{ text: { content: item.user } }] } } : {}),
     },
   };
 
@@ -39,7 +40,12 @@ async function saveToNotion(item, notionKey, databaseId) {
 }
 
 // ── Fetch all rows from Notion ──────────────────────────────────────────────
-async function fetchFromNotion(notionKey, databaseId) {
+async function fetchFromNotion(notionKey, databaseId, user) {
+  const queryBody = {
+    sorts: [{ property: "Date", direction: "descending" }],
+    page_size: 200,
+    ...(user ? { filter: { property: "User", rich_text: { equals: user } } } : {}),
+  };
   const res = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
     method: "POST",
     headers: {
@@ -47,7 +53,7 @@ async function fetchFromNotion(notionKey, databaseId) {
       "Content-Type": "application/json",
       "Notion-Version": "2022-06-28",
     },
-    body: JSON.stringify({ sorts: [{ property: "Date", direction: "descending" }], page_size: 200 }),
+    body: JSON.stringify(queryBody),
   });
 
   if (!res.ok) {
@@ -72,6 +78,7 @@ async function fetchFromNotion(notionKey, databaseId) {
       paymentMethod: p.PaymentMethod?.select?.name || "",
       costCenter: p.CostCenter?.select?.name || "",
       remark: p.Remark?.rich_text?.[0]?.text?.content || "",
+      user: p.User?.rich_text?.[0]?.text?.content || "",
     };
   });
 }
@@ -141,7 +148,8 @@ export default async function handler(req, res) {
       return res.status(200).json([]);
     }
     try {
-      const rows = await fetchFromNotion(NOTION_API_KEY, NOTION_DATABASE_ID);
+      const { user } = body;
+      const rows = await fetchFromNotion(NOTION_API_KEY, NOTION_DATABASE_ID, user || null);
       return res.status(200).json(rows);
     } catch (err) {
       return res.status(500).json({ error: err.message });
@@ -159,7 +167,7 @@ export default async function handler(req, res) {
   }
 
   // ── Action: analyze receipt image (default) ──
-  const { imageBase64, mediaType, paymentMethod, costCenter, remark } = body;
+  const { imageBase64, mediaType, paymentMethod, costCenter, remark, user } = body;
   if (!imageBase64) {
     return res.status(400).json({ error: "imageBase64 is required" });
   }
@@ -221,10 +229,10 @@ Rules:
 
     // Save each row to Notion in parallel (best-effort)
     if (NOTION_API_KEY && NOTION_DATABASE_ID) {
-      await Promise.allSettled(parsed.map(item => saveToNotion({ ...item, paymentMethod: paymentMethod || '', costCenter: costCenter || '', remark: remark || '' }, NOTION_API_KEY, NOTION_DATABASE_ID)));
+      await Promise.allSettled(parsed.map(item => saveToNotion({ ...item, paymentMethod: paymentMethod || '', costCenter: costCenter || '', remark: remark || '', user: user || '' }, NOTION_API_KEY, NOTION_DATABASE_ID)));
     }
 
-    return res.status(200).json(parsed.map(item => ({ ...item, paymentMethod: paymentMethod || '', costCenter: costCenter || '', remark: remark || '' })));
+    return res.status(200).json(parsed.map(item => ({ ...item, paymentMethod: paymentMethod || '', costCenter: costCenter || '', remark: remark || '', user: user || '' })));
 
   } catch (err) {
     return res.status(500).json({ error: err.message });
