@@ -216,8 +216,8 @@
           <div class="sel-step" id="step-payment">
             <div class="sel-step-label" id="lbl-payment">支払い方法</div>
             <div class="sel-btns">
-              <button class="sel-btn" onclick="selectPaymentMethod('MSE Corporate Card')">MSE Corporate Card</button>
-              <button class="sel-btn" onclick="selectPaymentMethod('Personal Credit Card')">Personal Credit Card</button>
+              <button class="sel-btn" onclick="selectPaymentMethod('MSE')">MSE</button>
+              <button class="sel-btn" onclick="selectPaymentMethod('Personal')">Personal</button>
               <button class="sel-btn" onclick="selectPaymentMethod('Cash')">Cash</button>
             </div>
           </div>
@@ -629,7 +629,7 @@ function renderRow(row) {
 
   const tr = document.createElement('tr');
   tr.id = 'row-' + row.id;
-  const PM_OPTIONS = ['', 'MSE Corporate Card', 'Personal Credit Card', 'Cash'];
+  const PM_OPTIONS = ['', 'MSE', 'Personal', 'Cash'];
   const CC_OPTIONS = ['', 'MSE', 'MJ', 'Other'];
   tr.innerHTML = `
     <td class="num-cell">${String(idx).padStart(2,'0')}</td>
