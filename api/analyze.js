@@ -43,7 +43,7 @@ async function saveToNotion(item, notionKey, databaseId) {
 // ── Fetch all rows from Notion ──────────────────────────────────────────────
 async function fetchFromNotion(notionKey, databaseId, user) {
   const queryBody = {
-    sorts: [{ property: "Date", direction: "descending" }],
+    sorts: [{ property: "No", direction: "descending" }, { property: "Date", direction: "descending" }],
     page_size: 200,
     ...(user ? { filter: { property: "User", rich_text: { equals: user } } } : {}),
   };
