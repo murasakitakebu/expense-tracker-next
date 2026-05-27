@@ -526,8 +526,8 @@ async function loadFromNotion() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'fetch', user: currentUser })
     });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
     if (!Array.isArray(data) || data.length === 0) {
       setNotionStatus('ok');
       return;
@@ -541,6 +541,10 @@ async function loadFromNotion() {
     showToast(T[lang].toastLoaded(data.length));
   } catch (err) {
     setNotionStatus('err');
+    console.error('Notion fetch error:', err.message);
+    const errEl = document.getElementById('error-msg');
+    errEl.innerHTML = `<strong>Notion Error:</strong> ${err.message}`;
+    errEl.style.display = 'block';
   }
 }
 
