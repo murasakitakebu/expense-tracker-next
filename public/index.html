@@ -417,6 +417,7 @@ let currentPaymentMethod = null;
 let currentCostCenter = null;
 let currentRemark = '';
 let currentUser = null;
+let maxRowNo = 0;
 
 // ─── Login / Logout ───────────────────────────────────────────────────────────
 function login() {
@@ -537,6 +538,7 @@ async function loadFromNotion() {
     const tbody = document.getElementById('table-body');
     tbody.innerHTML = '';
     data.forEach(item => addRowData(item, false));
+    maxRowNo = Math.max(0, ...rows.map(r => r.no || 0));
     setNotionStatus('ok');
     showToast(T[lang].toastLoaded(data.length));
   } catch (err) {
@@ -648,7 +650,7 @@ async function analyzeReceipt() {
     const res = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'analyze', imageBase64: currentImageBase64, mediaType: currentMediaType, paymentMethod: currentPaymentMethod, costCenter: currentCostCenter, remark: currentRemark, user: currentUser })
+      body: JSON.stringify({ action: 'analyze', imageBase64: currentImageBase64, mediaType: currentMediaType, paymentMethod: currentPaymentMethod, costCenter: currentCostCenter, remark: currentRemark, user: currentUser, noStart: maxRowNo + 1 })
     });
     const text = await res.text();
     if (!res.ok) {
@@ -658,7 +660,9 @@ async function analyzeReceipt() {
     }
     const data = JSON.parse(text);
     if (!Array.isArray(data)) throw new Error('Unexpected response');
-    data.forEach(item => addRowData({ ...item, paymentMethod: currentPaymentMethod || '', costCenter: currentCostCenter || '', remark: currentRemark || '' }, true));
+    const base = maxRowNo + 1;
+    data.slice().reverse().forEach((item, i) => addRowData({ ...item, paymentMethod: currentPaymentMethod || '', costCenter: currentCostCenter || '', remark: currentRemark || '', no: base + (data.length - 1 - i) }, true, true));
+    maxRowNo += data.length;
     setNotionStatus('ok');
     showToast(t.toastAnalyzed(data.length));
   } catch (err) {
@@ -674,7 +678,7 @@ async function analyzeReceipt() {
 }
 
 // ─── Row management ───────────────────────────────────────────────────────────
-function addRowData(item = {}, savedToNotion = false) {
+function addRowData(item = {}, savedToNotion = false, toTop = false) {
   const emptyRow = document.getElementById('empty-row');
   if (emptyRow) emptyRow.remove();
 
@@ -684,6 +688,7 @@ function addRowData(item = {}, savedToNotion = false) {
   const row = {
     id,
     notion_id: item.notion_id || null,
+    no: item.no ?? null,
     date: item.date || todayStr(),
     store: item.store || '',
     category_ja: catJa,
@@ -697,14 +702,18 @@ function addRowData(item = {}, savedToNotion = false) {
     remark: item.remark || '',
     savedToNotion,
   };
-  rows.push(row);
-  renderRow(row);
+  if (toTop) {
+    rows.unshift(row);
+  } else {
+    rows.push(row);
+  }
+  renderRow(row, toTop);
   updateSubtotals();
 }
 
-function addRow() { addRowData({}, false); }
+function addRow() { addRowData({ no: ++maxRowNo }, false, true); }
 
-function renderRow(row) {
+function renderRow(row, toTop = false) {
   const tbody = document.getElementById('table-body');
   const idx = rows.findIndex(r => r.id === row.id) + 1;
   const t = T[lang];
@@ -716,7 +725,7 @@ function renderRow(row) {
   const PM_OPTIONS = ['', 'Corporate', 'Personal', 'Cash'];
   const CC_OPTIONS = ['', 'MSE', 'MJ', 'Other'];
   tr.innerHTML = `
-    <td class="num-cell">${String(idx).padStart(2,'0')}</td>
+    <td class="num-cell">${String(row.no ?? idx).padStart(2,'0')}</td>
     <td contenteditable="true" oninput="updateField('${row.id}','date',this.textContent.trim())">${row.date}</td>
     <td contenteditable="true" oninput="updateField('${row.id}','store',this.textContent.trim())">${row.store}</td>
     <td>
@@ -747,7 +756,11 @@ function renderRow(row) {
       <button class="icon-btn del" onclick="deleteRow('${row.id}')">🗑</button>
     </td>
   `;
-  tbody.appendChild(tr);
+  if (toTop) {
+    tbody.prepend(tr);
+  } else {
+    tbody.appendChild(tr);
+  }
   document.getElementById('subtotals-strip').style.display = 'flex';
 }
 

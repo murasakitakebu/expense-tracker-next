@@ -19,6 +19,7 @@ async function saveToNotion(item, notionKey, databaseId) {
       ...(item.costCenter ? { CostCenter: { select: { name: item.costCenter } } } : {}),
       Remark: { rich_text: [{ text: { content: item.remark || "" } }] },
       ...(item.user ? { User: { rich_text: [{ text: { content: item.user } }] } } : {}),
+      ...(item.no != null ? { No: { number: item.no } } : {}),
     },
   };
 
@@ -79,6 +80,7 @@ async function fetchFromNotion(notionKey, databaseId, user) {
       costCenter: p.CostCenter?.select?.name || "",
       remark: p.Remark?.rich_text?.[0]?.text?.content || "",
       user: p.User?.rich_text?.[0]?.text?.content || "",
+      no: p.No?.number ?? null,
     };
   });
 }
@@ -167,7 +169,7 @@ export default async function handler(req, res) {
   }
 
   // ── Action: analyze receipt image (default) ──
-  const { imageBase64, mediaType, paymentMethod, costCenter, remark, user } = body;
+  const { imageBase64, mediaType, paymentMethod, costCenter, remark, user, noStart } = body;
   if (!imageBase64) {
     return res.status(400).json({ error: "imageBase64 is required" });
   }
@@ -229,10 +231,10 @@ Rules:
 
     // Save each row to Notion in parallel (best-effort)
     if (NOTION_API_KEY && NOTION_DATABASE_ID) {
-      await Promise.allSettled(parsed.map(item => saveToNotion({ ...item, paymentMethod: paymentMethod || '', costCenter: costCenter || '', remark: remark || '', user: user || '' }, NOTION_API_KEY, NOTION_DATABASE_ID)));
+      await Promise.allSettled(parsed.map((item, i) => saveToNotion({ ...item, paymentMethod: paymentMethod || '', costCenter: costCenter || '', remark: remark || '', user: user || '', no: noStart != null ? noStart + i : null }, NOTION_API_KEY, NOTION_DATABASE_ID)));
     }
 
-    return res.status(200).json(parsed.map(item => ({ ...item, paymentMethod: paymentMethod || '', costCenter: costCenter || '', remark: remark || '', user: user || '' })));
+    return res.status(200).json(parsed.map((item, i) => ({ ...item, paymentMethod: paymentMethod || '', costCenter: costCenter || '', remark: remark || '', user: user || '', no: noStart != null ? noStart + i : null })));
 
   } catch (err) {
     return res.status(500).json({ error: err.message });
