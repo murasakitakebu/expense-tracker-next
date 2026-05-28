@@ -110,6 +110,22 @@
   .btn-xls:hover { background: rgba(79,255,176,0.22); }
   .btn-refresh { background: rgba(255,184,79,0.1); color: var(--warn); border: 1px solid rgba(255,184,79,0.25); }
   .btn-refresh:hover { background: rgba(255,184,79,0.2); }
+  .btn-apply { background: rgba(124,140,255,0.18); color: var(--accent2); border: 1px solid rgba(124,140,255,0.35); font-weight: 700; }
+  .btn-apply:hover { background: rgba(124,140,255,0.3); }
+
+  /* ── Status badge ── */
+  .status-badge { font-size: 10px; padding: 3px 9px; border-radius: 100px; font-weight: 700; white-space: nowrap; border: none; font-family: 'Noto Sans JP', sans-serif; transition: opacity 0.15s; display: inline-block; }
+  .status-badge.clickable { cursor: pointer; }
+  .status-badge.clickable:hover { opacity: 0.75; }
+  .status-未申請 { background: var(--surface2); color: var(--muted); }
+  .status-申請中 { background: rgba(255,184,79,0.18); color: var(--warn); }
+  .status-受理   { background: rgba(79,255,176,0.18); color: var(--accent); }
+  .status-却下   { background: rgba(255,92,124,0.18); color: var(--danger); }
+
+  /* ── Checkbox column ── */
+  .check-cell { width: 28px; text-align: center; padding: 0 4px; }
+  .row-check { width: 14px; height: 14px; accent-color: var(--accent2); cursor: pointer; }
+  .row-check:disabled { opacity: 0.3; cursor: default; }
 
   /* ── Table ── */
   .table-wrap { overflow-x: auto; padding: 18px; }
@@ -273,6 +289,7 @@
         <div class="actions">
           <button class="btn btn-refresh" id="btn-refresh" onclick="loadFromNotion()" title="Notionから再読み込み">↻</button>
           <button class="btn btn-ghost" id="btn-add" onclick="addRow()">＋ 行を追加</button>
+          <button class="btn btn-apply" id="btn-apply" onclick="submitSelected()">✔ <span id="apply-label">申請する</span></button>
           <button class="btn btn-csv" onclick="downloadCSV()">⬇ CSV</button>
           <button class="btn btn-xls" onclick="downloadExcel()">⬇ Excel</button>
         </div>
@@ -282,6 +299,7 @@
         <table>
           <thead>
             <tr>
+              <th class="check-cell"><input type="checkbox" id="check-all" class="row-check" onclick="toggleAllChecks(this)"></th>
               <th>#</th>
               <th id="th-date">日付</th>
               <th id="th-store">店舗・内容</th>
@@ -292,11 +310,12 @@
               <th id="th-cc">CC</th>
               <th id="th-note">備考</th>
               <th id="th-remark">Remark</th>
+              <th id="th-status">ステータス</th>
               <th></th>
             </tr>
           </thead>
           <tbody id="table-body">
-            <tr id="empty-row"><td colspan="11">
+            <tr id="empty-row"><td colspan="13">
               <div class="empty-state">
                 <div class="icon">📋</div>
                 <p id="empty-txt">レシートをアップロード・撮影してAI解析するか<br>「行を追加」で手動入力してください</p>
@@ -370,6 +389,12 @@ const T = {
     loginPlaceholder: 'お名前',
     loginBtn: '開始する →',
     logoutBtn: 'ログアウト',
+    thStatus: 'ステータス', applyLabel: '申請する',
+    toastApplied: n => `${n}件を申請しました`,
+    toastAppliedSkip: (n, s) => `${n}件を申請しました（${s}件スキップ）`,
+    toastNoneSelected: '項目を選択してください',
+    toastNoneApplicable: '申請可能な項目がありません',
+    toastNoNotion: 'Notionに未保存の項目は申請できません',
   },
   en: {
     title: 'Expense <span style="color:var(--accent)">Tracker</span>',
@@ -400,6 +425,12 @@ const T = {
     loginPlaceholder: 'Your name',
     loginBtn: 'Start →',
     logoutBtn: 'Sign out',
+    thStatus: 'Status', applyLabel: 'Apply',
+    toastApplied: n => `${n} item(s) submitted`,
+    toastAppliedSkip: (n, s) => `${n} submitted (${s} skipped)`,
+    toastNoneSelected: 'Please select items',
+    toastNoneApplicable: 'No applicable items to submit',
+    toastNoNotion: 'Unsaved items cannot be submitted',
   }
 };
 
@@ -437,7 +468,7 @@ function logout() {
   localStorage.removeItem('expense_user');
   rows = [];
   const tbody = document.getElementById('table-body');
-  tbody.innerHTML = `<tr id="empty-row"><td colspan="11"><div class="empty-state"><div class="icon">📋</div><p id="empty-txt">${T[lang].emptyTxt}</p></div></td></tr>`;
+  tbody.innerHTML = `<tr id="empty-row"><td colspan="13"><div class="empty-state"><div class="icon">📋</div><p id="empty-txt">${T[lang].emptyTxt}</p></div></td></tr>`;
   document.getElementById('subtotals-strip').style.display = 'none';
   document.getElementById('user-badge').style.display = 'none';
   document.getElementById('login-input').value = '';
@@ -700,6 +731,7 @@ function addRowData(item = {}, savedToNotion = false, toTop = false) {
     paymentMethod: item.paymentMethod || '',
     costCenter: item.costCenter || '',
     remark: item.remark || '',
+    status: item.status || '未申請',
     savedToNotion,
   };
   if (toTop) {
@@ -724,7 +756,10 @@ function renderRow(row, toTop = false) {
   tr.id = 'row-' + row.id;
   const PM_OPTIONS = ['', 'Corporate', 'Personal', 'Cash'];
   const CC_OPTIONS = ['', 'MSE', 'MJ', 'Other'];
+  const canApply = row.status !== '申請中' && row.status !== '受理';
+  const statusClickable = canApply && row.notion_id;
   tr.innerHTML = `
+    <td class="check-cell"><input type="checkbox" class="row-check" id="check-${row.id}" ${!canApply ? 'disabled' : ''}></td>
     <td class="num-cell">${String(row.no ?? idx).padStart(2,'0')}</td>
     <td contenteditable="true" oninput="updateField('${row.id}','date',this.textContent.trim())">${row.date}</td>
     <td contenteditable="true" oninput="updateField('${row.id}','store',this.textContent.trim())">${row.store}</td>
@@ -751,6 +786,7 @@ function renderRow(row, toTop = false) {
     </td>
     <td contenteditable="true" class="note-cell" oninput="updateNote('${row.id}',this.textContent.trim())">${note}</td>
     <td contenteditable="true" class="remark-cell" oninput="updateField('${row.id}','remark',this.textContent.trim())">${row.remark||''}</td>
+    <td><span id="status-${row.id}" class="status-badge status-${row.status} ${statusClickable ? 'clickable' : ''}" ${statusClickable ? `onclick="submitRow('${row.id}')"` : ''}>${row.status}</span></td>
     <td>
       ${row.savedToNotion ? '<span class="notion-saved" title="Notionに保存済">✓N</span>' : ''}
       <button class="icon-btn del" onclick="deleteRow('${row.id}')">🗑</button>
@@ -770,6 +806,55 @@ function updateField(id, field, value) {
   if (field === 'amount') { r.amount = parseFloat(value.replace(/[^0-9.]/g,'')) || 0; }
   else r[field] = value;
   updateSubtotals();
+}
+
+// ─── Apply / Status ──────────────────────────────────────────────────────────
+function toggleAllChecks(cb) {
+  document.querySelectorAll('.row-check:not(:disabled)').forEach(c => c.checked = cb.checked);
+}
+
+async function updateRowStatus(targetRows, status) {
+  const updates = targetRows.map(r => ({ notion_id: r.notion_id, status }));
+  await fetch('/api/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'updateStatus', updates }),
+  });
+  targetRows.forEach(r => {
+    r.status = status;
+    const badge = document.getElementById('status-' + r.id);
+    if (badge) {
+      badge.className = `status-badge status-${status}`;
+      badge.textContent = status;
+      badge.onclick = null;
+    }
+    const cb = document.getElementById('check-' + r.id);
+    if (cb) cb.disabled = true;
+  });
+}
+
+async function submitRow(id) {
+  const r = rows.find(r => r.id === id);
+  if (!r) return;
+  if (!r.notion_id) return showToast(T[lang].toastNoNotion);
+  if (r.status === '申請中' || r.status === '受理') return;
+  await updateRowStatus([r], '申請中');
+  showToast(T[lang].toastApplied(1));
+}
+
+async function submitSelected() {
+  const t = T[lang];
+  const checked = rows.filter(r => {
+    const cb = document.getElementById('check-' + r.id);
+    return cb && cb.checked;
+  });
+  if (checked.length === 0) return showToast(t.toastNoneSelected);
+  const submittable = checked.filter(r => r.notion_id && r.status !== '申請中' && r.status !== '受理');
+  if (submittable.length === 0) return showToast(t.toastNoneApplicable);
+  await updateRowStatus(submittable, '申請中');
+  const skipped = checked.length - submittable.length;
+  showToast(skipped > 0 ? t.toastAppliedSkip(submittable.length, skipped) : t.toastApplied(submittable.length));
+  document.getElementById('check-all').checked = false;
 }
 
 function updateCat(id, value) {
@@ -797,7 +882,7 @@ async function deleteRow(id) {
   rows = rows.filter(r => r.id !== id);
   document.getElementById('row-' + id)?.remove();
   if (!rows.length) {
-    document.getElementById('table-body').innerHTML = `<tr id="empty-row"><td colspan="11"><div class="empty-state"><div class="icon">📋</div><p id="empty-txt">${T[lang].emptyTxt}</p></div></td></tr>`;
+    document.getElementById('table-body').innerHTML = `<tr id="empty-row"><td colspan="13"><div class="empty-state"><div class="icon">📋</div><p id="empty-txt">${T[lang].emptyTxt}</p></div></td></tr>`;
     document.getElementById('subtotals-strip').style.display = 'none';
   } else updateSubtotals();
   showToast(T[lang].toastDeleted);

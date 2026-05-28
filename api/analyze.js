@@ -20,6 +20,7 @@ async function saveToNotion(item, notionKey, databaseId) {
       Remark: { rich_text: [{ text: { content: item.remark || "" } }] },
       ...(item.user ? { User: { rich_text: [{ text: { content: item.user } }] } } : {}),
       ...(item.no != null ? { No: { number: item.no } } : {}),
+      Status: { select: { name: item.status || "未申請" } },
     },
   };
 
@@ -81,6 +82,7 @@ async function fetchFromNotion(notionKey, databaseId, user) {
       remark: p.Remark?.rich_text?.[0]?.text?.content || "",
       user: p.User?.rich_text?.[0]?.text?.content || "",
       no: p.No?.number ?? null,
+      status: p.Status?.select?.name || "未申請",
     };
   });
 }
@@ -156,6 +158,28 @@ export default async function handler(req, res) {
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
+  }
+
+  // ── Action: update status of rows in Notion ──
+  if (action === "updateStatus") {
+    const { updates } = body; // [{ notion_id, status }, ...]
+    if (!NOTION_API_KEY || !Array.isArray(updates)) {
+      return res.status(200).json({ ok: true });
+    }
+    await Promise.allSettled(
+      updates.map(({ notion_id, status }) =>
+        fetch(`https://api.notion.com/v1/pages/${notion_id}`, {
+          method: "PATCH",
+          headers: {
+            "Authorization": `Bearer ${NOTION_API_KEY}`,
+            "Content-Type": "application/json",
+            "Notion-Version": "2022-06-28",
+          },
+          body: JSON.stringify({ properties: { Status: { select: { name: status } } } }),
+        })
+      )
+    );
+    return res.status(200).json({ ok: true });
   }
 
   // ── Action: delete a row from Notion ──
