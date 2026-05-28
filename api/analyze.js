@@ -20,7 +20,7 @@ async function saveToNotion(item, notionKey, databaseId) {
       Remark: { rich_text: [{ text: { content: item.remark || "" } }] },
       ...(item.user ? { User: { rich_text: [{ text: { content: item.user } }] } } : {}),
       ...(item.no != null ? { No: { number: item.no } } : {}),
-      Status: { select: { name: item.status || "未申請" } },
+      Status: { select: { name: item.status || "Draft" } },
     },
   };
 
@@ -82,7 +82,7 @@ async function fetchFromNotion(notionKey, databaseId, user) {
       remark: p.Remark?.rich_text?.[0]?.text?.content || "",
       user: p.User?.rich_text?.[0]?.text?.content || "",
       no: p.No?.number ?? null,
-      status: p.Status?.select?.name || "未申請",
+      status: p.Status?.select?.name || "Draft",
     };
   });
 }

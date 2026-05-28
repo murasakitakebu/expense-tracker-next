@@ -117,10 +117,10 @@
   .status-badge { font-size: 10px; padding: 3px 9px; border-radius: 100px; font-weight: 700; white-space: nowrap; border: none; font-family: 'Noto Sans JP', sans-serif; transition: opacity 0.15s; display: inline-block; }
   .status-badge.clickable { cursor: pointer; }
   .status-badge.clickable:hover { opacity: 0.75; }
-  .status-未申請 { background: var(--surface2); color: var(--muted); }
-  .status-申請中 { background: rgba(255,184,79,0.18); color: var(--warn); }
-  .status-受理   { background: rgba(79,255,176,0.18); color: var(--accent); }
-  .status-却下   { background: rgba(255,92,124,0.18); color: var(--danger); }
+  .status-Draft     { background: var(--surface2); color: var(--muted); }
+  .status-Submitted { background: rgba(255,184,79,0.18); color: var(--warn); }
+  .status-Approved  { background: rgba(79,255,176,0.18); color: var(--accent); }
+  .status-Rejected  { background: rgba(255,92,124,0.18); color: var(--danger); }
 
   /* ── Checkbox column ── */
   .check-cell { width: 28px; text-align: center; padding: 0 4px; }
@@ -731,7 +731,7 @@ function addRowData(item = {}, savedToNotion = false, toTop = false) {
     paymentMethod: item.paymentMethod || '',
     costCenter: item.costCenter || '',
     remark: item.remark || '',
-    status: item.status || '未申請',
+    status: item.status || 'Draft',
     savedToNotion,
   };
   if (toTop) {
@@ -756,7 +756,7 @@ function renderRow(row, toTop = false) {
   tr.id = 'row-' + row.id;
   const PM_OPTIONS = ['', 'Corporate', 'Personal', 'Cash'];
   const CC_OPTIONS = ['', 'MSE', 'MJ', 'Other'];
-  const canApply = row.status !== '申請中' && row.status !== '受理';
+  const canApply = row.status !== 'Submitted' && row.status !== 'Approved';
   const statusClickable = canApply && row.notion_id;
   tr.innerHTML = `
     <td class="check-cell"><input type="checkbox" class="row-check" id="check-${row.id}" ${!canApply ? 'disabled' : ''}></td>
@@ -837,8 +837,8 @@ async function submitRow(id) {
   const r = rows.find(r => r.id === id);
   if (!r) return;
   if (!r.notion_id) return showToast(T[lang].toastNoNotion);
-  if (r.status === '申請中' || r.status === '受理') return;
-  await updateRowStatus([r], '申請中');
+  if (r.status === 'Submitted' || r.status === 'Approved') return;
+  await updateRowStatus([r], 'Submitted');
   showToast(T[lang].toastApplied(1));
 }
 
@@ -849,9 +849,9 @@ async function submitSelected() {
     return cb && cb.checked;
   });
   if (checked.length === 0) return showToast(t.toastNoneSelected);
-  const submittable = checked.filter(r => r.notion_id && r.status !== '申請中' && r.status !== '受理');
+  const submittable = checked.filter(r => r.notion_id && r.status !== 'Submitted' && r.status !== 'Approved');
   if (submittable.length === 0) return showToast(t.toastNoneApplicable);
-  await updateRowStatus(submittable, '申請中');
+  await updateRowStatus(submittable, 'Submitted');
   const skipped = checked.length - submittable.length;
   showToast(skipped > 0 ? t.toastAppliedSkip(submittable.length, skipped) : t.toastApplied(submittable.length));
   document.getElementById('check-all').checked = false;
