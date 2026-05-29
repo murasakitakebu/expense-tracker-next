@@ -122,6 +122,23 @@
   .status-Approved  { background: rgba(79,255,176,0.18); color: var(--accent); }
   .status-Rejected  { background: rgba(255,92,124,0.18); color: var(--danger); }
 
+  /* ── Apply confirmation modal ── */
+  .apply-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.72); z-index: 2100; display: flex; align-items: center; justify-content: center; }
+  .apply-modal.hidden { display: none; }
+  .apply-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px 28px; width: min(580px, 94vw); max-height: 82vh; overflow-y: auto; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 18px; }
+  .apply-box h2 { font-size: 18px; font-weight: 700; }
+  .apply-sub { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .apply-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .apply-table th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .apply-table td { padding: 8px 8px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .apply-totals { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); padding-top: 4px; }
+  .apply-totals span strong { color: var(--accent); font-family: 'Space Mono', monospace; }
+  .apply-actions { display: flex; gap: 10px; justify-content: flex-end; padding-top: 4px; }
+  .apply-cancel-btn { padding: 10px 20px; background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; font-size: 13px; transition: all 0.15s; }
+  .apply-cancel-btn:hover { border-color: var(--muted); color: var(--text); }
+  .apply-confirm-btn { padding: 10px 28px; background: var(--accent2); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; font-size: 13px; font-weight: 700; transition: opacity 0.15s; }
+  .apply-confirm-btn:hover { opacity: 0.85; }
+
   /* ── Checkbox column ── */
   .check-cell { width: 28px; text-align: center; padding: 0 4px; }
   .row-check { width: 14px; height: 14px; accent-color: var(--accent2); cursor: pointer; }
@@ -345,6 +362,31 @@
   </div>
 </div>
 
+<!-- Apply Confirmation Modal -->
+<div id="apply-modal" class="apply-modal hidden">
+  <div class="apply-box">
+    <h2 id="am-title">経費申請の確認</h2>
+    <p class="apply-sub" id="am-sub"></p>
+    <table class="apply-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th id="am-th-date">日付</th>
+          <th id="am-th-store">店舗・内容</th>
+          <th id="am-th-cat">カテゴリ</th>
+          <th id="am-th-amt">金額</th>
+        </tr>
+      </thead>
+      <tbody id="am-body"></tbody>
+    </table>
+    <div class="apply-totals" id="am-totals"></div>
+    <div class="apply-actions">
+      <button class="apply-cancel-btn" id="am-cancel" onclick="closeApplyModal()">キャンセル</button>
+      <button class="apply-confirm-btn" id="am-confirm" onclick="confirmSubmit()">申請する</button>
+    </div>
+  </div>
+</div>
+
 <!-- Camera Modal -->
 <div id="camera-modal">
   <div class="camera-controls">
@@ -390,6 +432,8 @@ const T = {
     loginBtn: '開始する →',
     logoutBtn: 'ログアウト',
     thStatus: 'ステータス', applyLabel: '申請する',
+    amTitle: '経費申請の確認', amCancel: 'キャンセル', amConfirm: '申請する',
+    amSub: n => `下記 ${n} 件の経費を申請します。内容を確認してください。`,
     toastApplied: n => `${n}件を申請しました`,
     toastAppliedSkip: (n, s) => `${n}件を申請しました（${s}件スキップ）`,
     toastNoneSelected: '項目を選択してください',
@@ -426,6 +470,8 @@ const T = {
     loginBtn: 'Start →',
     logoutBtn: 'Sign out',
     thStatus: 'Status', applyLabel: 'Apply',
+    amTitle: 'Review Expense Application', amCancel: 'Cancel', amConfirm: 'Submit',
+    amSub: n => `You are about to submit ${n} expense item(s). Please review below.`,
     toastApplied: n => `${n} item(s) submitted`,
     toastAppliedSkip: (n, s) => `${n} submitted (${s} skipped)`,
     toastNoneSelected: 'Please select items',
@@ -837,16 +883,58 @@ async function updateRowStatus(targetRows, status) {
   });
 }
 
-async function submitRow(id) {
+let pendingSubmitRows = [];
+
+function openApplyModal(items) {
+  pendingSubmitRows = items;
+  const t = T[lang];
+  document.getElementById('am-title').textContent = t.amTitle;
+  document.getElementById('am-sub').textContent = t.amSub(items.length);
+  document.getElementById('am-cancel').textContent = t.amCancel;
+  document.getElementById('am-confirm').textContent = t.amConfirm;
+  document.getElementById('am-th-date').textContent = t.thDate;
+  document.getElementById('am-th-store').textContent = t.thStore;
+  document.getElementById('am-th-cat').textContent = t.thCat;
+  document.getElementById('am-th-amt').textContent = t.thAmt;
+  document.getElementById('am-body').innerHTML = items.map(r => {
+    const cat = lang === 'ja' ? r.category_ja : r.category_en;
+    return `<tr>
+      <td>${String(r.no ?? '—').padStart(2,'0')}</td>
+      <td>${r.date}</td>
+      <td>${r.store}</td>
+      <td>${cat}</td>
+      <td>${Number(r.amount).toLocaleString()} ${r.currency}</td>
+    </tr>`;
+  }).join('');
+  const totals = {};
+  items.forEach(r => { totals[r.currency] = (totals[r.currency] || 0) + (parseFloat(r.amount) || 0); });
+  document.getElementById('am-totals').innerHTML =
+    Object.entries(totals).map(([cur, amt]) => `<span>${cur}: <strong>${amt.toLocaleString()}</strong></span>`).join('');
+  document.getElementById('apply-modal').classList.remove('hidden');
+}
+
+function closeApplyModal() {
+  document.getElementById('apply-modal').classList.add('hidden');
+  pendingSubmitRows = [];
+}
+
+async function confirmSubmit() {
+  const toSubmit = pendingSubmitRows.slice();
+  closeApplyModal();
+  await updateRowStatus(toSubmit, 'Submitted');
+  showToast(T[lang].toastApplied(toSubmit.length));
+  document.getElementById('check-all').checked = false;
+}
+
+function submitRow(id) {
   const r = rows.find(r => r.id === id);
   if (!r) return;
   if (!r.notion_id) return showToast(T[lang].toastNoNotion);
   if (r.status === 'Submitted' || r.status === 'Approved') return;
-  await updateRowStatus([r], 'Submitted');
-  showToast(T[lang].toastApplied(1));
+  openApplyModal([r]);
 }
 
-async function submitSelected() {
+function submitSelected() {
   const t = T[lang];
   const checked = rows.filter(r => {
     const cb = document.getElementById('check-' + r.id);
@@ -855,10 +943,7 @@ async function submitSelected() {
   if (checked.length === 0) return showToast(t.toastNoneSelected);
   const submittable = checked.filter(r => r.notion_id && r.status !== 'Submitted' && r.status !== 'Approved');
   if (submittable.length === 0) return showToast(t.toastNoneApplicable);
-  await updateRowStatus(submittable, 'Submitted');
-  const skipped = checked.length - submittable.length;
-  showToast(skipped > 0 ? t.toastAppliedSkip(submittable.length, skipped) : t.toastApplied(submittable.length));
-  document.getElementById('check-all').checked = false;
+  openApplyModal(submittable);
 }
 
 function updateCat(id, value) {
