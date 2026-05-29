@@ -168,6 +168,8 @@
   .subtotal-chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; display: flex; flex-direction: column; gap: 1px; }
   .chip-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
   .chip-value { font-family: 'Space Mono', monospace; font-size: 15px; font-weight: 700; color: var(--accent); }
+  .subtotal-chip-eur { border-color: var(--accent2); }
+  .subtotal-chip-eur .chip-value { color: var(--accent2); }
   .edit-hint { font-size: 11px; color: var(--muted); }
 
   /* ── Empty state ── */
@@ -439,6 +441,7 @@ const T = {
     toastNoneSelected: '項目を選択してください',
     toastNoneApplicable: '申請可能な項目がありません',
     toastNoNotion: 'Notionに未保存の項目は申請できません',
+    eurTotal: 'EUR 合計（換算）',
   },
   en: {
     title: 'Expense <span style="color:var(--accent)">Tracker</span>',
@@ -477,6 +480,7 @@ const T = {
     toastNoneSelected: 'Please select items',
     toastNoneApplicable: 'No applicable items to submit',
     toastNoNotion: 'Unsaved items cannot be submitted',
+    eurTotal: 'EUR Total (converted)',
   }
 };
 
@@ -782,6 +786,7 @@ function addRowData(item = {}, savedToNotion = false, toTop = false) {
     costCenter: item.costCenter || '',
     remark: item.remark || '',
     status: item.status || 'Draft',
+    eur_amount: item.eur_amount ?? null,
     savedToNotion,
   };
   if (toTop) {
@@ -980,19 +985,32 @@ async function deleteRow(id) {
 // ─── Subtotals ────────────────────────────────────────────────────────────────
 function updateSubtotals() {
   const totals = {};
+  let eurTotal = 0;
+  let hasEurConversion = false;
   rows.forEach(r => {
     const cur = r.currency || 'JPY';
     totals[cur] = (totals[cur] || 0) + (parseFloat(r.amount) || 0);
+    if (r.eur_amount != null) {
+      eurTotal += r.eur_amount;
+      hasEurConversion = true;
+    }
   });
 
   const chips = document.getElementById('subtotal-chips');
-  chips.innerHTML = Object.entries(totals).map(([cur, amt]) => {
+  const currencyChips = Object.entries(totals).map(([cur, amt]) => {
     const sym = CURRENCY_SYMBOLS[cur] || cur;
     return `<div class="subtotal-chip">
       <span class="chip-label">${T[lang].subtotalLabel(cur)}</span>
       <span class="chip-value">${sym}${amt.toLocaleString()}</span>
     </div>`;
   }).join('');
+  const eurChip = hasEurConversion
+    ? `<div class="subtotal-chip subtotal-chip-eur">
+        <span class="chip-label">${T[lang].eurTotal}</span>
+        <span class="chip-value">€${eurTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+      </div>`
+    : '';
+  chips.innerHTML = currencyChips + eurChip;
   document.getElementById('edit-hint').textContent = T[lang].editHint;
 }
 

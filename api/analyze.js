@@ -21,6 +21,7 @@ async function saveToNotion(item, notionKey, databaseId) {
       ...(item.user ? { User: { rich_text: [{ text: { content: item.user } }] } } : {}),
       ...(item.no != null ? { No: { number: item.no } } : {}),
       Status: { select: { name: item.status || "Draft" } },
+      ...(item.eur_amount != null ? { EURAmount: { number: item.eur_amount } } : {}),
     },
   };
 
@@ -83,6 +84,7 @@ async function fetchFromNotion(notionKey, databaseId, user) {
       user: p.User?.rich_text?.[0]?.text?.content || "",
       no: p.No?.number ?? null,
       status: p.Status?.select?.name || "Draft",
+      eur_amount: p.EURAmount?.number ?? null,
     };
   });
 }
@@ -115,6 +117,27 @@ const CAT_EN_TO_JA = {
 
 function categoryEnToJa(en) {
   return CAT_EN_TO_JA[en] || "その他";
+}
+
+// ── Fetch EUR conversion rates from Frankfurter API ─────────────────────────
+async function getEURRates(items) {
+  const pairs = [...new Set(
+    items
+      .filter(item => item.currency && item.currency !== "EUR" && item.date)
+      .map(item => `${item.date}|${item.currency}`)
+  )];
+  const rates = {};
+  await Promise.allSettled(pairs.map(async (pair) => {
+    const [date, currency] = pair.split("|");
+    try {
+      const res = await fetch(`https://api.frankfurter.app/${date}?from=${currency}&to=EUR`);
+      if (res.ok) {
+        const data = await res.json();
+        rates[pair] = data.rates?.EUR ?? null;
+      }
+    } catch {}
+  }));
+  return rates;
 }
 
 // ── Vercel handler ───────────────────────────────────────────────────────────
@@ -253,12 +276,27 @@ Rules:
     const clean = rawText.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(clean);
 
+    // Fetch EUR conversion rates for non-EUR items
+    const eurRates = await getEURRates(parsed);
+    const parsedWithEUR = parsed.map(item => {
+      let eur_amount = null;
+      if (item.currency === "EUR") {
+        eur_amount = Math.round((parseFloat(item.amount) || 0) * 100) / 100;
+      } else if (item.date && item.currency) {
+        const rate = eurRates[`${item.date}|${item.currency}`];
+        if (rate != null) {
+          eur_amount = Math.round(((parseFloat(item.amount) || 0) * rate) * 100) / 100;
+        }
+      }
+      return { ...item, eur_amount };
+    });
+
     // Save each row to Notion in parallel (best-effort)
     if (NOTION_API_KEY && NOTION_DATABASE_ID) {
-      await Promise.allSettled(parsed.map((item, i) => saveToNotion({ ...item, paymentMethod: paymentMethod || '', costCenter: costCenter || '', remark: remark || '', user: user || '', no: noStart != null ? noStart + i : null }, NOTION_API_KEY, NOTION_DATABASE_ID)));
+      await Promise.allSettled(parsedWithEUR.map((item, i) => saveToNotion({ ...item, paymentMethod: paymentMethod || '', costCenter: costCenter || '', remark: remark || '', user: user || '', no: noStart != null ? noStart + i : null }, NOTION_API_KEY, NOTION_DATABASE_ID)));
     }
 
-    return res.status(200).json(parsed.map((item, i) => ({ ...item, paymentMethod: paymentMethod || '', costCenter: costCenter || '', remark: remark || '', user: user || '', no: noStart != null ? noStart + i : null })));
+    return res.status(200).json(parsedWithEUR.map((item, i) => ({ ...item, paymentMethod: paymentMethod || '', costCenter: costCenter || '', remark: remark || '', user: user || '', no: noStart != null ? noStart + i : null })));
 
   } catch (err) {
     return res.status(500).json({ error: err.message });
