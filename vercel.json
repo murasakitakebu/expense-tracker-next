@@ -1,3 +1,4 @@
 {
-  "outputDirectory": "public"
+  "outputDirectory": "public",
+  "alias": ["expense-tracker-next-kappa.vercel.app"]
 }

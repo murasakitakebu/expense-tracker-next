@@ -22,6 +22,7 @@ async function saveToNotion(item, notionKey, databaseId) {
       ...(item.no != null ? { No: { number: item.no } } : {}),
       Status: { select: { name: item.status || "Draft" } },
       ...(item.eur_amount != null ? { EURAmount: { number: item.eur_amount } } : {}),
+      ...(item.receiptUrl ? { ReceiptURL: { url: item.receiptUrl } } : {}),
     },
   };
 
@@ -38,8 +39,10 @@ async function saveToNotion(item, notionKey, databaseId) {
   if (!res.ok) {
     const err = await res.text();
     console.error("Notion save error:", err);
+    return null;
   }
-  return res.ok;
+  const data = await res.json();
+  return data.id;
 }
 
 // ── Fetch all rows from Notion ──────────────────────────────────────────────
@@ -85,6 +88,7 @@ async function fetchFromNotion(notionKey, databaseId, user) {
       no: p.No?.number ?? null,
       status: p.Status?.select?.name || "Draft",
       eur_amount: p.EURAmount?.number ?? null,
+      receiptUrl: p.ReceiptURL?.url || null,
     };
   });
 }
@@ -119,6 +123,31 @@ function categoryEnToJa(en) {
   return CAT_EN_TO_JA[en] || "その他";
 }
 
+// ── Get current max No for a user from Notion ──────────────────────────────
+async function getMaxNo(notionKey, databaseId, user) {
+  if (!user) return 0;
+  try {
+    const res = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${notionKey}`,
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28",
+      },
+      body: JSON.stringify({
+        filter: { property: "User", rich_text: { equals: user } },
+        sorts: [{ property: "No", direction: "descending" }],
+        page_size: 1,
+      }),
+    });
+    if (!res.ok) return 0;
+    const data = await res.json();
+    return data.results[0]?.properties?.No?.number ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 // ── Fetch EUR conversion rates from Frankfurter API ─────────────────────────
 async function getEURRates(items) {
   const pairs = [...new Set(
@@ -140,6 +169,31 @@ async function getEURRates(items) {
   return rates;
 }
 
+// ── Upload receipt to Supabase Storage ─────────────────────────────────────
+async function uploadToSupabase(base64Data, mediaType, supabaseUrl, supabaseKey, user) {
+  const extMap = { "application/pdf": "pdf", "image/png": "png", "image/gif": "gif", "image/webp": "webp" };
+  const ext = extMap[mediaType] || "jpg";
+  const safeName = (user || "unknown").replace(/[^a-zA-Z0-9]/g, "_");
+  const path = `${safeName}/${Date.now()}.${ext}`;
+  const buffer = Buffer.from(base64Data, "base64");
+
+  const res = await fetch(`${supabaseUrl}/storage/v1/object/receipts/${path}`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${supabaseKey}`,
+      "Content-Type": mediaType,
+    },
+    body: buffer,
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    console.error("Supabase upload error:", err);
+    return null;
+  }
+  return `${supabaseUrl}/storage/v1/object/public/receipts/${path}`;
+}
+
 // ── Vercel handler ───────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   // CORS preflight
@@ -157,10 +211,8 @@ export default async function handler(req, res) {
   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
   const NOTION_API_KEY = process.env.NOTION_API_KEY;
   const NOTION_DATABASE_ID = process.env.NOTION_DATABASE_ID;
-
-  if (!ANTHROPIC_API_KEY) {
-    return res.status(500).json({ error: "ANTHROPIC_API_KEY not set" });
-  }
+  const SUPABASE_URL = process.env.SUPABASE_URL;
+  const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
   const body = req.body;
   if (!body) {
@@ -181,6 +233,28 @@ export default async function handler(req, res) {
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
+  }
+
+  // ── Action: update No of rows in Notion ──
+  if (action === "updateNo") {
+    const { updates } = body; // [{ notion_id, no }, ...]
+    if (!NOTION_API_KEY || !Array.isArray(updates)) {
+      return res.status(200).json({ ok: true });
+    }
+    await Promise.allSettled(
+      updates.map(({ notion_id, no }) =>
+        fetch(`https://api.notion.com/v1/pages/${notion_id}`, {
+          method: "PATCH",
+          headers: {
+            "Authorization": `Bearer ${NOTION_API_KEY}`,
+            "Content-Type": "application/json",
+            "Notion-Version": "2022-06-28",
+          },
+          body: JSON.stringify({ properties: { No: { number: no } } }),
+        })
+      )
+    );
+    return res.status(200).json({ ok: true });
   }
 
   // ── Action: update status of rows in Notion ──
@@ -205,6 +279,50 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
+  // ── Action: fix empty Status → Draft (all users) ──
+  if (action === "fixDraft") {
+    if (!NOTION_API_KEY || !NOTION_DATABASE_ID) {
+      return res.status(200).json({ fixed: 0 });
+    }
+    const pageIds = [];
+    let cursor;
+    do {
+      const queryBody = {
+        filter: { property: "Status", select: { is_empty: true } },
+        page_size: 100,
+        ...(cursor ? { start_cursor: cursor } : {}),
+      };
+      const r = await fetch(`https://api.notion.com/v1/databases/${NOTION_DATABASE_ID}/query`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${NOTION_API_KEY}`,
+          "Content-Type": "application/json",
+          "Notion-Version": "2022-06-28",
+        },
+        body: JSON.stringify(queryBody),
+      });
+      if (!r.ok) break;
+      const data = await r.json();
+      data.results.forEach(p => pageIds.push(p.id));
+      cursor = data.has_more ? data.next_cursor : undefined;
+    } while (cursor);
+
+    await Promise.allSettled(
+      pageIds.map(id =>
+        fetch(`https://api.notion.com/v1/pages/${id}`, {
+          method: "PATCH",
+          headers: {
+            "Authorization": `Bearer ${NOTION_API_KEY}`,
+            "Content-Type": "application/json",
+            "Notion-Version": "2022-06-28",
+          },
+          body: JSON.stringify({ properties: { Status: { select: { name: "Draft" } } } }),
+        })
+      )
+    );
+    return res.status(200).json({ fixed: pageIds.length });
+  }
+
   // ── Action: delete a row from Notion ──
   if (action === "delete") {
     const { notion_id } = body;
@@ -215,7 +333,37 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
+  // ── Action: save a manually entered row to Notion ──
+  if (action === "save") {
+    if (!NOTION_API_KEY || !NOTION_DATABASE_ID) {
+      return res.status(200).json({ notion_id: null, eur_amount: null });
+    }
+    const { item } = body;
+    if (!item) return res.status(400).json({ error: "item is required" });
+
+    let eur_amount = null;
+    if (item.currency === "EUR") {
+      eur_amount = Math.round((parseFloat(item.amount) || 0) * 100) / 100;
+    } else if (item.date && item.currency) {
+      try {
+        const r = await fetch(`https://api.frankfurter.app/${item.date}?from=${item.currency}&to=EUR`);
+        if (r.ok) {
+          const d = await r.json();
+          if (d.rates?.EUR != null) {
+            eur_amount = Math.round(((parseFloat(item.amount) || 0) * d.rates.EUR) * 100) / 100;
+          }
+        }
+      } catch {}
+    }
+    const notion_id = await saveToNotion({ ...item, eur_amount, receiptUrl: item.receiptUrl || null }, NOTION_API_KEY, NOTION_DATABASE_ID);
+    return res.status(200).json({ notion_id, eur_amount });
+  }
+
   // ── Action: analyze receipt image (default) ──
+  if (!ANTHROPIC_API_KEY) {
+    return res.status(500).json({ error: "ANTHROPIC_API_KEY not set" });
+  }
+
   const { imageBase64, mediaType, paymentMethod, costCenter, remark, user, noStart } = body;
   if (!imageBase64) {
     return res.status(400).json({ error: "imageBase64 is required" });
@@ -259,7 +407,9 @@ Rules:
         messages: [{
           role: "user",
           content: [
-            { type: "image", source: { type: "base64", media_type: mediaType || "image/jpeg", data: imageBase64 } },
+            mediaType === "application/pdf"
+              ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: imageBase64 } }
+              : { type: "image", source: { type: "base64", media_type: mediaType || "image/jpeg", data: imageBase64 } },
             { type: "text", text: prompt },
           ],
         }],
@@ -291,12 +441,25 @@ Rules:
       return { ...item, eur_amount };
     });
 
-    // Save each row to Notion in parallel (best-effort)
-    if (NOTION_API_KEY && NOTION_DATABASE_ID) {
-      await Promise.allSettled(parsedWithEUR.map((item, i) => saveToNotion({ ...item, paymentMethod: paymentMethod || '', costCenter: costCenter || '', remark: remark || '', user: user || '', no: noStart != null ? noStart + i : null }, NOTION_API_KEY, NOTION_DATABASE_ID)));
+    // Upload receipt to Supabase (best-effort)
+    let receiptUrl = null;
+    if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+      receiptUrl = await uploadToSupabase(imageBase64, mediaType || "image/jpeg", SUPABASE_URL, SUPABASE_SERVICE_KEY, user);
     }
 
-    return res.status(200).json(parsedWithEUR.map((item, i) => ({ ...item, paymentMethod: paymentMethod || '', costCenter: costCenter || '', remark: remark || '', user: user || '', no: noStart != null ? noStart + i : null })));
+    // Determine noStart from Notion (authoritative) to prevent duplicates
+    let actualNoStart = null;
+    if (NOTION_API_KEY && NOTION_DATABASE_ID && user) {
+      const maxNo = await getMaxNo(NOTION_API_KEY, NOTION_DATABASE_ID, user);
+      actualNoStart = maxNo + 1;
+    }
+
+    // Save each row to Notion in parallel (best-effort)
+    if (NOTION_API_KEY && NOTION_DATABASE_ID) {
+      await Promise.allSettled(parsedWithEUR.map((item, i) => saveToNotion({ ...item, paymentMethod: paymentMethod || '', costCenter: costCenter || '', remark: remark || '', user: user || '', no: actualNoStart != null ? actualNoStart + i : null, receiptUrl }, NOTION_API_KEY, NOTION_DATABASE_ID)));
+    }
+
+    return res.status(200).json(parsedWithEUR.map((item, i) => ({ ...item, paymentMethod: paymentMethod || '', costCenter: costCenter || '', remark: remark || '', user: user || '', no: actualNoStart != null ? actualNoStart + i : null, receiptUrl, noStart: actualNoStart })));
 
   } catch (err) {
     return res.status(500).json({ error: err.message });
