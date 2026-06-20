@@ -111,10 +111,22 @@
   .btn-xls:hover { background: rgba(79,255,176,0.22); }
   .btn-refresh { background: rgba(255,184,79,0.1); color: var(--warn); border: 1px solid rgba(255,184,79,0.25); }
   .btn-refresh:hover { background: rgba(255,184,79,0.2); }
-  .btn-fix { background: rgba(255,92,124,0.08); color: var(--danger); border: 1px solid rgba(255,92,124,0.2); font-size: 11px; }
-  .btn-fix:hover { background: rgba(255,92,124,0.18); }
   .btn-apply { background: rgba(124,140,255,0.18); color: var(--accent2); border: 1px solid rgba(124,140,255,0.35); font-weight: 700; }
   .btn-apply:hover { background: rgba(124,140,255,0.3); }
+  .icon-btn.save-dirty { color: var(--warn); }
+  .apply-skip-btn { padding: 10px 20px; background: rgba(255,184,79,0.15); color: var(--warn); border: 1px solid rgba(255,184,79,0.35); border-radius: 8px; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; font-size: 13px; font-weight: 600; transition: all 0.15s; }
+  .apply-skip-btn:hover { background: rgba(255,184,79,0.25); }
+  .dup-warning { background: rgba(255,184,79,0.07); border: 1px solid rgba(255,184,79,0.3); border-radius: 8px; padding: 12px 16px; }
+  .dup-warning strong { color: var(--warn); font-size: 13px; display: block; margin-bottom: 4px; }
+  .dup-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .dup-list { margin: 6px 0 0 14px; font-size: 12px; color: var(--muted); line-height: 1.8; }
+  .apply-dup-row td:first-child::after { content: ' ⚠'; color: var(--warn); }
+  .pm-subtotals { padding: 10px 18px 14px; border-top: 1px solid var(--border); }
+  .pm-subtotals-title { font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; font-weight: 500; }
+  .pm-rows { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pm-row { display: flex; align-items: center; gap: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 5px 12px; }
+  .pm-row-label { font-size: 11px; color: var(--muted); }
+  .pm-row-amount { font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700; color: var(--text); }
 
   /* ── Status badge ── */
   .status-badge { font-size: 10px; padding: 3px 9px; border-radius: 100px; font-weight: 700; white-space: nowrap; border: none; font-family: 'Noto Sans JP', sans-serif; transition: opacity 0.15s; display: inline-block; }
@@ -320,7 +332,6 @@
         </div>
         <div class="actions">
           <button class="btn btn-refresh" id="btn-refresh" onclick="loadFromNotion()" title="Notionから再読み込み">↻</button>
-          <button class="btn btn-fix" onclick="fixEmptyStatuses()" title="StatusがないNotion行をすべてDraftに修正">⚙ Fix Draft</button>
           <button class="btn btn-ghost" id="btn-add" onclick="addRow()">＋ 行を追加</button>
           <button class="btn btn-apply" id="btn-apply" onclick="submitSelected()">✔ <span id="apply-label">申請する</span></button>
           <button class="btn btn-csv" onclick="downloadCSV()">⬇ CSV</button>
@@ -362,6 +373,7 @@
         <div class="subtotal-chips" id="subtotal-chips"></div>
         <span class="edit-hint" id="edit-hint">セルをクリックして編集</span>
       </div>
+      <div class="pm-subtotals" id="pm-subtotals" style="display:none"></div>
     </div>
   </div>
 </div>
@@ -396,8 +408,14 @@
       <tbody id="am-body"></tbody>
     </table>
     <div class="apply-totals" id="am-totals"></div>
+    <div id="am-dup-section" class="dup-warning" style="display:none">
+      <strong id="am-dup-title"></strong>
+      <p class="dup-desc" id="am-dup-desc"></p>
+      <ul class="dup-list" id="am-dup-list"></ul>
+    </div>
     <div class="apply-actions">
       <button class="apply-cancel-btn" id="am-cancel" onclick="closeApplyModal()">キャンセル</button>
+      <button class="apply-skip-btn" id="am-skip" onclick="confirmSubmitSkipDups()" style="display:none">重複スキップして申請</button>
       <button class="apply-confirm-btn" id="am-confirm" onclick="confirmSubmit()">申請する</button>
     </div>
   </div>
@@ -456,6 +474,12 @@ const T = {
     toastNoneApplicable: '申請可能な項目がありません',
     toastNoNotion: 'Notionに未保存の項目は申請できません',
     eurTotal: 'EUR 合計（換算）',
+    pmSubtotalsTitle: '支払方法別合計',
+    pmUnspecified: '（未記入）',
+    amDupTitle: '⚠ 重複の可能性があります',
+    amDupDesc: n => `${n}件が既存データと重複している可能性があります。確認してください。`,
+    amSubmitAll: 'すべて申請',
+    amSubmitSkipDups: '重複をスキップして申請',
   },
   en: {
     title: 'Expense <span style="color:var(--accent)">Tracker</span>',
@@ -495,6 +519,12 @@ const T = {
     toastNoneApplicable: 'No applicable items to submit',
     toastNoNotion: 'Unsaved items cannot be submitted',
     eurTotal: 'EUR Total (converted)',
+    pmSubtotalsTitle: 'By Payment Method',
+    pmUnspecified: '(Unspecified)',
+    amDupTitle: '⚠ Possible Duplicates Detected',
+    amDupDesc: n => `${n} item(s) may be duplicates of existing entries. Please review before submitting.`,
+    amSubmitAll: 'Submit All',
+    amSubmitSkipDups: 'Skip Duplicates & Submit',
   }
 };
 
@@ -921,6 +951,7 @@ function renderRow(row, toTop = false) {
     <td><span id="status-${row.id}" class="status-badge status-${row.status} ${statusClickable ? 'clickable' : ''}" ${statusClickable ? `onclick="submitRow('${row.id}')"` : ''}>${row.status}</span></td>
     <td>
       <span id="notion-badge-${row.id}" class="notion-saved" title="Saved to Notion" style="${row.savedToNotion ? '' : 'display:none'}">✓N</span>
+      <button class="icon-btn save-dirty" id="save-btn-${row.id}" onclick="manualSaveRow('${row.id}')" title="${lang==='ja'?'保存':'Save'}" style="display:none">💾</button>
       ${row.receiptUrl ? `<a href="${row.receiptUrl}" target="_blank" class="icon-btn" title="View receipt">🧾</a>` : ''}
       <button class="icon-btn del" onclick="deleteRow('${row.id}')">🗑</button>
     </td>
@@ -939,6 +970,7 @@ function updateField(id, field, value) {
   if (field === 'amount') { r.amount = parseFloat(value.replace(/[^0-9.]/g,'')) || 0; }
   else r[field] = value;
   updateSubtotals();
+  scheduleAutosave(id);
 }
 
 // ─── Apply / Status ──────────────────────────────────────────────────────────
@@ -967,22 +999,101 @@ async function updateRowStatus(targetRows, status) {
 }
 
 let pendingSubmitRows = [];
+let pendingDuplicateIds = new Set();
+
+// ─── Auto-save on cell edit ────────────────────────────────────────────────────
+const _autosaveTimers = {};
+function scheduleAutosave(id) {
+  clearTimeout(_autosaveTimers[id]);
+  _autosaveTimers[id] = setTimeout(() => autosaveRow(id), 1200);
+}
+
+async function autosaveRow(id) {
+  const r = rows.find(r => r.id === id);
+  if (!r) return;
+  if (!r.notion_id) {
+    const btn = document.getElementById('save-btn-' + id);
+    if (btn) btn.style.display = 'inline';
+    return;
+  }
+  const badge = document.getElementById('notion-badge-' + id);
+  if (badge) { badge.style.display = ''; badge.textContent = '⏳'; badge.style.color = 'var(--warn)'; }
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'updateRow',
+        notion_id: r.notion_id,
+        item: { store: r.store, date: r.date, category_en: r.category_en, amount: r.amount, currency: r.currency, note_en: r.note_en || '', note_ja: r.note_ja || '', paymentMethod: r.paymentMethod || '', costCenter: r.costCenter || '', remark: r.remark || '' }
+      })
+    });
+    if (badge) {
+      badge.textContent = '✓N';
+      badge.style.color = res.ok ? '' : 'var(--warn)';
+      badge.title = res.ok ? 'Saved to Notion' : 'Save failed';
+    }
+  } catch {
+    if (badge) { badge.textContent = '!N'; badge.style.color = 'var(--warn)'; }
+  }
+}
+
+async function manualSaveRow(id) {
+  const r = rows.find(r => r.id === id);
+  if (!r) return;
+  if (r.notion_id) { await autosaveRow(id); }
+  else { await saveRow(id); }
+  const btn = document.getElementById('save-btn-' + id);
+  if (btn) btn.style.display = 'none';
+}
+
+// ─── Duplicate detection ───────────────────────────────────────────────────────
+function areDuplicates(a, b) {
+  if (a.date !== b.date) return false;
+  const sa = (a.store || '').toLowerCase().trim();
+  const sb = (b.store || '').toLowerCase().trim();
+  if (sa && sb && sa === sb) return true;
+  const aa = parseFloat(a.amount) || 0;
+  const ab2 = parseFloat(b.amount) || 0;
+  if (aa > 0 && aa === ab2 && a.currency === b.currency) return true;
+  return false;
+}
+
+function findDuplicates(items) {
+  const pairs = [];
+  const selIds = new Set(items.map(r => r.id));
+  for (let i = 0; i < items.length; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      if (areDuplicates(items[i], items[j])) pairs.push({ a: items[i], b: items[j] });
+    }
+    rows.forEach(other => {
+      if (selIds.has(other.id)) return;
+      if (other.status !== 'Submitted' && other.status !== 'Approved') return;
+      if (areDuplicates(items[i], other)) pairs.push({ a: items[i], b: other });
+    });
+  }
+  return pairs;
+}
 
 function openApplyModal(items) {
   pendingSubmitRows = items;
+  pendingDuplicateIds = new Set();
+  const dups = findDuplicates(items);
+  dups.forEach(p => pendingDuplicateIds.add(p.a.id));
+
   const t = T[lang];
   document.getElementById('am-title').textContent = t.amTitle;
   document.getElementById('am-sub').textContent = t.amSub(items.length);
   document.getElementById('am-cancel').textContent = t.amCancel;
-  document.getElementById('am-confirm').textContent = t.amConfirm;
   document.getElementById('am-th-date').textContent = t.thDate;
   document.getElementById('am-th-store').textContent = t.thStore;
   document.getElementById('am-th-cat').textContent = t.thCat;
   document.getElementById('am-th-amt').textContent = t.thAmt;
   document.getElementById('am-body').innerHTML = items.map(r => {
     const cat = lang === 'ja' ? r.category_ja : r.category_en;
-    return `<tr>
-      <td>${String(r.no ?? '—').padStart(2,'0')}</td>
+    const isDup = pendingDuplicateIds.has(r.id);
+    return `<tr class="${isDup ? 'apply-dup-row' : ''}">
+      <td>${String(r.no ?? '—').padStart(2,'0')}${isDup ? ' ⚠' : ''}</td>
       <td>${r.date}</td>
       <td>${r.store}</td>
       <td>${cat}</td>
@@ -993,12 +1104,34 @@ function openApplyModal(items) {
   items.forEach(r => { totals[r.currency] = (totals[r.currency] || 0) + (parseFloat(r.amount) || 0); });
   document.getElementById('am-totals').innerHTML =
     Object.entries(totals).map(([cur, amt]) => `<span>${cur}: <strong>${amt.toLocaleString()}</strong></span>`).join('');
+
+  const dupSection = document.getElementById('am-dup-section');
+  const skipBtn = document.getElementById('am-skip');
+  const confirmBtn = document.getElementById('am-confirm');
+  if (dups.length > 0) {
+    dupSection.style.display = 'block';
+    skipBtn.style.display = '';
+    skipBtn.textContent = t.amSubmitSkipDups;
+    confirmBtn.textContent = t.amSubmitAll;
+    document.getElementById('am-dup-title').textContent = t.amDupTitle;
+    document.getElementById('am-dup-desc').textContent = t.amDupDesc(dups.length);
+    document.getElementById('am-dup-list').innerHTML = dups.map(({ a, b }) => {
+      const noA = String(a.no ?? '—').padStart(2, '0');
+      const noB = String(b.no ?? '—').padStart(2, '0');
+      return `<li>No.${noA} ${a.store||'—'} (${a.date} / ${a.currency} ${Number(a.amount).toLocaleString()}) ↔ No.${noB} ${b.store||'—'}</li>`;
+    }).join('');
+  } else {
+    dupSection.style.display = 'none';
+    skipBtn.style.display = 'none';
+    confirmBtn.textContent = t.amConfirm;
+  }
   document.getElementById('apply-modal').classList.remove('hidden');
 }
 
 function closeApplyModal() {
   document.getElementById('apply-modal').classList.add('hidden');
   pendingSubmitRows = [];
+  pendingDuplicateIds = new Set();
 }
 
 async function confirmSubmit() {
@@ -1006,6 +1139,16 @@ async function confirmSubmit() {
   closeApplyModal();
   await updateRowStatus(toSubmit, 'Submitted');
   showToast(T[lang].toastApplied(toSubmit.length));
+  document.getElementById('check-all').checked = false;
+}
+
+async function confirmSubmitSkipDups() {
+  const toSubmit = pendingSubmitRows.filter(r => !pendingDuplicateIds.has(r.id));
+  const skipped = pendingSubmitRows.length - toSubmit.length;
+  closeApplyModal();
+  if (!toSubmit.length) { showToast(T[lang].toastNoneApplicable); return; }
+  await updateRowStatus(toSubmit, 'Submitted');
+  showToast(T[lang].toastAppliedSkip(toSubmit.length, skipped));
   document.getElementById('check-all').checked = false;
 }
 
@@ -1034,12 +1177,14 @@ function updateCat(id, value) {
   if (!r) return;
   if (lang === 'ja') { r.category_ja = value; r.category_en = CAT_JA_TO_EN[value] || 'Other'; }
   else { r.category_en = value; r.category_ja = CAT_EN_TO_JA[value] || 'その他'; }
+  scheduleAutosave(id);
 }
 
 function updateNote(id, value) {
   const r = rows.find(r => r.id === id);
   if (!r) return;
   if (lang === 'ja') r.note_ja = value; else r.note_en = value;
+  scheduleAutosave(id);
 }
 
 async function deleteRow(id) {
@@ -1125,6 +1270,28 @@ function updateSubtotals() {
     : '';
   chips.innerHTML = currencyChips + eurChip;
   document.getElementById('edit-hint').textContent = T[lang].editHint;
+
+  // Payment method breakdown
+  const pmTotals = {};
+  rows.forEach(r => {
+    const pm = r.paymentMethod || '';
+    const cur = r.currency || 'JPY';
+    if (!pmTotals[pm]) pmTotals[pm] = {};
+    pmTotals[pm][cur] = (pmTotals[pm][cur] || 0) + (parseFloat(r.amount) || 0);
+  });
+  const pmEl = document.getElementById('pm-subtotals');
+  if (rows.length > 0) {
+    const t2 = T[lang];
+    const pmKeys = Object.keys(pmTotals).sort((a, b) => a === '' ? 1 : b === '' ? -1 : a.localeCompare(b));
+    pmEl.innerHTML = `<div class="pm-subtotals-title">${t2.pmSubtotalsTitle}</div><div class="pm-rows">${pmKeys.map(pm => {
+      const label = pm || t2.pmUnspecified;
+      const amounts = Object.entries(pmTotals[pm]).map(([cur, amt]) => `${CURRENCY_SYMBOLS[cur]||cur}${amt.toLocaleString()}`).join(' / ');
+      return `<div class="pm-row"><span class="pm-row-label">${label}</span><span class="pm-row-amount">${amounts}</span></div>`;
+    }).join('')}</div>`;
+    pmEl.style.display = 'block';
+  } else {
+    pmEl.style.display = 'none';
+  }
 }
 
 // ─── Export ───────────────────────────────────────────────────────────────────
@@ -1234,25 +1401,6 @@ async function saveRow(id) {
     }
   } catch (err) {
     console.error('Auto-save failed:', err.message);
-  }
-}
-
-// ─── Fix empty statuses ───────────────────────────────────────────────────────
-async function fixEmptyStatuses() {
-  if (!confirm('Notionで Status が空欄の全行を "Draft" に更新します。よろしいですか？')) return;
-  showToast('⏳ 修正中…');
-  try {
-    const res = await fetch('/api/analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'fixDraft' })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
-    showToast(`✅ ${data.fixed} 件を Draft に更新しました`);
-    if (data.fixed > 0) loadFromNotion();
-  } catch (err) {
-    showToast('⚠ エラー: ' + err.message);
   }
 }
 

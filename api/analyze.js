@@ -279,6 +279,41 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
+  // ── Action: update all editable fields of a Notion row ──
+  if (action === "updateRow") {
+    const { notion_id, item } = body;
+    if (!NOTION_API_KEY || !notion_id || !item) {
+      return res.status(200).json({ ok: true });
+    }
+    const properties = {
+      Name: { title: [{ text: { content: item.store || "Unknown" } }] },
+      Date: { date: { start: item.date } },
+      Store: { rich_text: [{ text: { content: item.store || "" } }] },
+      Category: { select: { name: item.category_en || "Other" } },
+      Amount: { number: parseFloat(item.amount) || 0 },
+      Currency: { select: { name: item.currency || "JPY" } },
+      Note: { rich_text: [{ text: { content: item.note_en || "" } }] },
+      PaymentMethod: item.paymentMethod ? { select: { name: item.paymentMethod } } : { select: null },
+      CostCenter: item.costCenter ? { select: { name: item.costCenter } } : { select: null },
+      Remark: { rich_text: [{ text: { content: item.remark || "" } }] },
+    };
+    const patchRes = await fetch(`https://api.notion.com/v1/pages/${notion_id}`, {
+      method: "PATCH",
+      headers: {
+        "Authorization": `Bearer ${NOTION_API_KEY}`,
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28",
+      },
+      body: JSON.stringify({ properties }),
+    });
+    if (!patchRes.ok) {
+      const err = await patchRes.text();
+      console.error("Notion updateRow error:", err);
+      return res.status(500).json({ error: err });
+    }
+    return res.status(200).json({ ok: true });
+  }
+
   // ── Action: fix empty Status → Draft (all users) ──
   if (action === "fixDraft") {
     if (!NOTION_API_KEY || !NOTION_DATABASE_ID) {
