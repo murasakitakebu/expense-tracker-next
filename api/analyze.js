@@ -148,7 +148,14 @@ async function getMaxNo(notionKey, databaseId, user) {
   }
 }
 
-// ── Fetch EUR conversion rates from Frankfurter API ─────────────────────────
+// Currencies supported by Frankfurter (ECB subset). Others fall back to fawazahmed0 API.
+const FRANKFURTER_CURRENCIES = new Set([
+  "AUD","BGN","BRL","CAD","CHF","CNY","CZK","DKK","GBP","HKD","HUF",
+  "IDR","ILS","INR","ISK","JPY","KRW","MXN","MYR","NOK","NZD","PHP",
+  "PLN","RON","SEK","SGD","THB","TRY","USD","ZAR",
+]);
+
+// ── Fetch EUR conversion rates (Frankfurter → fawazahmed0 fallback) ──────────
 async function getEURRates(items) {
   const pairs = [...new Set(
     items
@@ -158,11 +165,31 @@ async function getEURRates(items) {
   const rates = {};
   await Promise.allSettled(pairs.map(async (pair) => {
     const [date, currency] = pair.split("|");
+    // 1) Frankfurter for ECB-supported currencies
+    if (FRANKFURTER_CURRENCIES.has(currency)) {
+      try {
+        const res = await fetch(`https://api.frankfurter.app/${date}?from=${currency}&to=EUR`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.rates?.EUR != null) { rates[pair] = data.rates.EUR; return; }
+        }
+      } catch {}
+    }
+    // 2) Fallback: fawazahmed0 open currency API (historical date)
+    const from = currency.toLowerCase();
     try {
-      const res = await fetch(`https://api.frankfurter.app/${date}?from=${currency}&to=EUR`);
-      if (res.ok) {
-        const data = await res.json();
-        rates[pair] = data.rates?.EUR ?? null;
+      const res2 = await fetch(`https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/${date}/currencies/${from}/eur.json`);
+      if (res2.ok) {
+        const data2 = await res2.json();
+        if (data2.eur != null) { rates[pair] = data2.eur; return; }
+      }
+    } catch {}
+    // 3) Final fallback: use latest rate if historical date unavailable
+    try {
+      const res3 = await fetch(`https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies/${from}/eur.json`);
+      if (res3.ok) {
+        const data3 = await res3.json();
+        if (data3.eur != null) rates[pair] = data3.eur;
       }
     } catch {}
   }));
