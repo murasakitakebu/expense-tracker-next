@@ -175,21 +175,22 @@ async function getEURRates(items) {
         }
       } catch {}
     }
-    // 2) Fallback: fawazahmed0 open currency API (historical date)
+    // 2) Fallback: @fawazahmed0/currency-api npm package via jsDelivr (170+ currencies)
+    //    URL: /npm/@fawazahmed0/currency-api@{date}/v1/currencies/{from}.min.json
     const from = currency.toLowerCase();
     try {
-      const res2 = await fetch(`https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/${date}/currencies/${from}/eur.json`);
+      const res2 = await fetch(`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${date}/v1/currencies/${from}.min.json`);
       if (res2.ok) {
         const data2 = await res2.json();
-        if (data2.eur != null) { rates[pair] = data2.eur; return; }
+        if (data2[from]?.eur != null) { rates[pair] = data2[from].eur; return; }
       }
     } catch {}
-    // 3) Final fallback: use latest rate if historical date unavailable
+    // 3) Final fallback: use latest published rate
     try {
-      const res3 = await fetch(`https://cdn.jsdelivr.net/gh/fawazahmed0/currency-api@1/latest/currencies/${from}/eur.json`);
+      const res3 = await fetch(`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${from}.min.json`);
       if (res3.ok) {
         const data3 = await res3.json();
-        if (data3.eur != null) rates[pair] = data3.eur;
+        if (data3[from]?.eur != null) rates[pair] = data3[from].eur;
       }
     } catch {}
   }));
