@@ -338,7 +338,8 @@
         </div>
         <div class="actions">
           <button class="btn btn-refresh" id="btn-refresh" onclick="loadFromNotion()" title="Notionから再読み込み">↻</button>
-          <button class="btn btn-ghost" id="btn-backfill-eur" onclick="backfillEUR()" title="NotionのEURAmountが空の行を一括計算・更新">EUR補完</button>
+          <!-- EUR補完ボタン: 復活させる場合は下行をコメントアウト解除 -->
+          <!-- <button class="btn btn-ghost" id="btn-backfill-eur" onclick="backfillEUR()" title="NotionのEURAmountが空の行を一括計算・更新">EUR補完</button> -->
           <button class="btn btn-ghost" id="btn-add" onclick="addRow()">＋ 行を追加</button>
           <button class="btn btn-apply" id="btn-apply" onclick="submitSelected()">✔ <span id="apply-label">申請する</span></button>
           <button class="btn btn-csv" onclick="downloadCSV()">⬇ CSV</button>
