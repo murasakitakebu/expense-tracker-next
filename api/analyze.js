@@ -314,6 +314,70 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
+  // ── Action: backfill EURAmount for rows where it is missing ──
+  if (action === "backfillEUR") {
+    if (!NOTION_API_KEY || !NOTION_DATABASE_ID) {
+      return res.status(200).json({ updated: 0, skipped: 0 });
+    }
+    // Fetch all pages where EURAmount is empty
+    const pages = [];
+    let cursor;
+    do {
+      const queryBody = {
+        filter: { property: "EURAmount", number: { is_empty: true } },
+        page_size: 100,
+        ...(cursor ? { start_cursor: cursor } : {}),
+      };
+      const r = await fetch(`https://api.notion.com/v1/databases/${NOTION_DATABASE_ID}/query`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${NOTION_API_KEY}`,
+          "Content-Type": "application/json",
+          "Notion-Version": "2022-06-28",
+        },
+        body: JSON.stringify(queryBody),
+      });
+      if (!r.ok) break;
+      const data = await r.json();
+      data.results.forEach(page => {
+        const p = page.properties;
+        const date = p.Date?.date?.start;
+        const currency = p.Currency?.select?.name || "JPY";
+        const amount = p.Amount?.number || 0;
+        if (date && amount > 0) pages.push({ id: page.id, date, currency, amount });
+      });
+      cursor = data.has_more ? data.next_cursor : undefined;
+    } while (cursor);
+
+    if (pages.length === 0) return res.status(200).json({ updated: 0, skipped: 0 });
+
+    // Batch EUR rate lookups via Frankfurter
+    const eurRates = await getEURRates(pages);
+
+    let updated = 0, skipped = 0;
+    await Promise.allSettled(pages.map(async (page) => {
+      let eur_amount = null;
+      if (page.currency === "EUR") {
+        eur_amount = Math.round(page.amount * 100) / 100;
+      } else {
+        const rate = eurRates[`${page.date}|${page.currency}`];
+        if (rate != null) eur_amount = Math.round(page.amount * rate * 100) / 100;
+      }
+      if (eur_amount == null) { skipped++; return; }
+      const pr = await fetch(`https://api.notion.com/v1/pages/${page.id}`, {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${NOTION_API_KEY}`,
+          "Content-Type": "application/json",
+          "Notion-Version": "2022-06-28",
+        },
+        body: JSON.stringify({ properties: { EURAmount: { number: eur_amount } } }),
+      });
+      if (pr.ok) updated++; else skipped++;
+    }));
+    return res.status(200).json({ updated, skipped });
+  }
+
   // ── Action: fix empty Status → Draft (all users) ──
   if (action === "fixDraft") {
     if (!NOTION_API_KEY || !NOTION_DATABASE_ID) {

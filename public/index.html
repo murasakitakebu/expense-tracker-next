@@ -338,6 +338,7 @@
         </div>
         <div class="actions">
           <button class="btn btn-refresh" id="btn-refresh" onclick="loadFromNotion()" title="Notionから再読み込み">↻</button>
+          <button class="btn btn-ghost" id="btn-backfill-eur" onclick="backfillEUR()" title="NotionのEURAmountが空の行を一括計算・更新">EUR補完</button>
           <button class="btn btn-ghost" id="btn-add" onclick="addRow()">＋ 行を追加</button>
           <button class="btn btn-apply" id="btn-apply" onclick="submitSelected()">✔ <span id="apply-label">申請する</span></button>
           <button class="btn btn-csv" onclick="downloadCSV()">⬇ CSV</button>
@@ -1446,6 +1447,28 @@ async function saveRow(id) {
     }
   } catch (err) {
     console.error('Auto-save failed:', err.message);
+  }
+}
+
+// ─── Backfill EUR amounts in Notion ───────────────────────────────────────────
+async function backfillEUR() {
+  const btn = document.getElementById('btn-backfill-eur');
+  btn.disabled = true;
+  showToast('⏳ EUR補完中…');
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'backfillEUR' })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
+    showToast(`✅ ${data.updated}件を更新（${data.skipped}件はレート取得不可でスキップ）`);
+    if (data.updated > 0) loadFromNotion();
+  } catch (err) {
+    showToast('⚠ エラー: ' + err.message);
+  } finally {
+    btn.disabled = false;
   }
 }
 
