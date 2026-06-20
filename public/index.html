@@ -122,11 +122,17 @@
   .dup-list { margin: 6px 0 0 14px; font-size: 12px; color: var(--muted); line-height: 1.8; }
   .apply-dup-row td:first-child::after { content: ' ⚠'; color: var(--warn); }
   .pm-subtotals { padding: 10px 18px 14px; border-top: 1px solid var(--border); }
-  .pm-subtotals-title { font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; font-weight: 500; }
-  .pm-rows { display: flex; flex-wrap: wrap; gap: 8px; }
-  .pm-row { display: flex; align-items: center; gap: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 5px 12px; }
+  .pm-subtotals-title { font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; font-weight: 500; }
+  .pm-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+  .pm-table th { text-align: left; color: var(--muted); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 4px 10px; font-weight: 500; white-space: nowrap; }
+  .pm-table td { padding: 5px 10px; border-top: 1px solid rgba(42,47,62,0.5); white-space: nowrap; }
+  .pm-label { color: var(--muted); font-size: 11px; min-width: 100px; }
+  .pm-draft { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--text); }
+  .pm-submitted-amt { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--warn); }
+  .pm-rows { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .pm-row { display: flex; align-items: center; gap: 10px; background: var(--surface2); border: 1px solid rgba(124,140,255,0.25); border-radius: 8px; padding: 5px 12px; }
   .pm-row-label { font-size: 11px; color: var(--muted); }
-  .pm-row-amount { font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700; color: var(--text); }
+  .pm-row-amount { font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700; color: var(--accent2); }
 
   /* ── Status badge ── */
   .status-badge { font-size: 10px; padding: 3px 9px; border-radius: 100px; font-weight: 700; white-space: nowrap; border: none; font-family: 'Noto Sans JP', sans-serif; transition: opacity 0.15s; display: inline-block; }
@@ -476,6 +482,9 @@ const T = {
     eurTotal: 'EUR 合計（換算）',
     pmSubtotalsTitle: '支払方法別合計',
     pmUnspecified: '（未記入）',
+    pmDraftLabel: 'Draft',
+    pmSubmittedLabel: '申請済',
+    pmSubmittedEurTitle: '申請済 EUR 合計（支払方法別）',
     amDupTitle: '⚠ 重複の可能性があります',
     amDupDesc: n => `${n}件が既存データと重複している可能性があります。確認してください。`,
     amSubmitAll: 'すべて申請',
@@ -521,6 +530,9 @@ const T = {
     eurTotal: 'EUR Total (converted)',
     pmSubtotalsTitle: 'By Payment Method',
     pmUnspecified: '(Unspecified)',
+    pmDraftLabel: 'Draft',
+    pmSubmittedLabel: 'Submitted',
+    pmSubmittedEurTitle: 'Submitted EUR Total (by Payment Method)',
     amDupTitle: '⚠ Possible Duplicates Detected',
     amDupDesc: n => `${n} item(s) may be duplicates of existing entries. Please review before submitting.`,
     amSubmitAll: 'Submit All',
@@ -1271,23 +1283,56 @@ function updateSubtotals() {
   chips.innerHTML = currencyChips + eurChip;
   document.getElementById('edit-hint').textContent = T[lang].editHint;
 
-  // Payment method breakdown
-  const pmTotals = {};
+  // Payment method breakdown (Draft vs Submitted)
+  const pmDraft = {}, pmSubmitted = {}, pmSubmittedEUR = {};
   rows.forEach(r => {
     const pm = r.paymentMethod || '';
     const cur = r.currency || 'JPY';
-    if (!pmTotals[pm]) pmTotals[pm] = {};
-    pmTotals[pm][cur] = (pmTotals[pm][cur] || 0) + (parseFloat(r.amount) || 0);
+    const amt = parseFloat(r.amount) || 0;
+    const isSub = r.status === 'Submitted' || r.status === 'Approved';
+    if (isSub) {
+      if (!pmSubmitted[pm]) pmSubmitted[pm] = {};
+      pmSubmitted[pm][cur] = (pmSubmitted[pm][cur] || 0) + amt;
+      if (r.eur_amount != null) pmSubmittedEUR[pm] = (pmSubmittedEUR[pm] || 0) + r.eur_amount;
+    } else {
+      if (!pmDraft[pm]) pmDraft[pm] = {};
+      pmDraft[pm][cur] = (pmDraft[pm][cur] || 0) + amt;
+    }
   });
+
   const pmEl = document.getElementById('pm-subtotals');
-  if (rows.length > 0) {
+  const allPMs = [...new Set([...Object.keys(pmDraft), ...Object.keys(pmSubmitted)])].sort((a, b) => a === '' ? 1 : b === '' ? -1 : a.localeCompare(b));
+  if (rows.length > 0 && allPMs.length > 0) {
     const t2 = T[lang];
-    const pmKeys = Object.keys(pmTotals).sort((a, b) => a === '' ? 1 : b === '' ? -1 : a.localeCompare(b));
-    pmEl.innerHTML = `<div class="pm-subtotals-title">${t2.pmSubtotalsTitle}</div><div class="pm-rows">${pmKeys.map(pm => {
+    const fmtAmts = (map, pm) => {
+      if (!map[pm]) return '—';
+      return Object.entries(map[pm]).map(([c, a]) => `${CURRENCY_SYMBOLS[c]||c}${a.toLocaleString()}`).join(' / ');
+    };
+    let html = `<div class="pm-subtotals-title">${t2.pmSubtotalsTitle}</div>
+      <table class="pm-table"><thead><tr>
+        <th></th><th>${t2.pmDraftLabel}</th><th>${t2.pmSubmittedLabel}</th>
+      </tr></thead><tbody>`;
+    allPMs.forEach(pm => {
       const label = pm || t2.pmUnspecified;
-      const amounts = Object.entries(pmTotals[pm]).map(([cur, amt]) => `${CURRENCY_SYMBOLS[cur]||cur}${amt.toLocaleString()}`).join(' / ');
-      return `<div class="pm-row"><span class="pm-row-label">${label}</span><span class="pm-row-amount">${amounts}</span></div>`;
-    }).join('')}</div>`;
+      html += `<tr>
+        <td class="pm-label">${label}</td>
+        <td class="pm-draft">${fmtAmts(pmDraft, pm)}</td>
+        <td class="pm-submitted-amt">${fmtAmts(pmSubmitted, pm)}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+
+    const eurPMs = Object.keys(pmSubmittedEUR).sort((a, b) => a === '' ? 1 : b === '' ? -1 : a.localeCompare(b));
+    if (eurPMs.length > 0) {
+      html += `<div class="pm-subtotals-title" style="margin-top:14px">${t2.pmSubmittedEurTitle}</div><div class="pm-rows">`;
+      eurPMs.forEach(pm => {
+        const label = pm || t2.pmUnspecified;
+        const eur = pmSubmittedEUR[pm];
+        html += `<div class="pm-row"><span class="pm-row-label">${label}</span><span class="pm-row-amount">€${eur.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>`;
+      });
+      html += '</div>';
+    }
+    pmEl.innerHTML = html;
     pmEl.style.display = 'block';
   } else {
     pmEl.style.display = 'none';
