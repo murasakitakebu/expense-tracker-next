@@ -484,8 +484,8 @@ const T = {
     pmSubtotalsTitle: '支払方法別合計',
     pmUnspecified: '（未記入）',
     pmDraftLabel: 'Draft',
-    pmSubmittedLabel: '申請済',
-    pmSubmittedEurTitle: '申請済 EUR 合計（支払方法別）',
+    pmSubmittedLabel: '申請済 (EUR)',
+    pmSubmittedEurTitle: '',
     amDupTitle: '⚠ 重複の可能性があります',
     amDupDesc: n => `${n}件が既存データと重複している可能性があります。確認してください。`,
     amSubmitAll: 'すべて申請',
@@ -532,8 +532,8 @@ const T = {
     pmSubtotalsTitle: 'By Payment Method',
     pmUnspecified: '(Unspecified)',
     pmDraftLabel: 'Draft',
-    pmSubmittedLabel: 'Submitted',
-    pmSubmittedEurTitle: 'Submitted EUR Total (by Payment Method)',
+    pmSubmittedLabel: 'Submitted (EUR)',
+    pmSubmittedEurTitle: '',
     amDupTitle: '⚠ Possible Duplicates Detected',
     amDupDesc: n => `${n} item(s) may be duplicates of existing entries. Please review before submitting.`,
     amSubmitAll: 'Submit All',
@@ -1309,6 +1309,11 @@ function updateSubtotals() {
       if (!map[pm]) return '—';
       return Object.entries(map[pm]).map(([c, a]) => `${CURRENCY_SYMBOLS[c]||c}${a.toLocaleString()}`).join(' / ');
     };
+    const fmtEUR = (pm) => {
+      const eur = pmSubmittedEUR[pm];
+      if (eur == null) return '—';
+      return `€${eur.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+    };
     let html = `<div class="pm-subtotals-title">${t2.pmSubtotalsTitle}</div>
       <table class="pm-table"><thead><tr>
         <th></th><th>${t2.pmDraftLabel}</th><th>${t2.pmSubmittedLabel}</th>
@@ -1318,21 +1323,10 @@ function updateSubtotals() {
       html += `<tr>
         <td class="pm-label">${label}</td>
         <td class="pm-draft">${fmtAmts(pmDraft, pm)}</td>
-        <td class="pm-submitted-amt">${fmtAmts(pmSubmitted, pm)}</td>
+        <td class="pm-submitted-amt">${fmtEUR(pm)}</td>
       </tr>`;
     });
     html += '</tbody></table>';
-
-    const eurPMs = Object.keys(pmSubmittedEUR).sort((a, b) => a === '' ? 1 : b === '' ? -1 : a.localeCompare(b));
-    if (eurPMs.length > 0) {
-      html += `<div class="pm-subtotals-title" style="margin-top:14px">${t2.pmSubmittedEurTitle}</div><div class="pm-rows">`;
-      eurPMs.forEach(pm => {
-        const label = pm || t2.pmUnspecified;
-        const eur = pmSubmittedEUR[pm];
-        html += `<div class="pm-row"><span class="pm-row-label">${label}</span><span class="pm-row-amount">€${eur.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>`;
-      });
-      html += '</div>';
-    }
     pmEl.innerHTML = html;
     pmEl.style.display = 'block';
   } else {
