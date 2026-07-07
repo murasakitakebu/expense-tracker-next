@@ -76,6 +76,40 @@
   .preview-clear { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); border: none; color: var(--text); width: 26px; height: 26px; border-radius: 50%; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
   .preview-clear:hover { background: var(--danger); }
 
+  /* ── Batch queue ── */
+  #batch-queue-wrap { margin-bottom: 14px; }
+  .batch-queue-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .batch-queue-count { font-size: 11px; color: var(--muted); font-weight: 500; }
+  .batch-clear-btn { background: none; border: 1px solid var(--border); color: var(--muted); width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 11px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .batch-clear-btn:hover { border-color: var(--danger); color: var(--danger); }
+  .batch-queue-list { display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto; margin-bottom: 12px; padding-right: 2px; }
+  .batch-item { display: flex; gap: 10px; padding: 10px; background: var(--surface2); border: 1.5px solid var(--border); border-radius: 10px; transition: border-color 0.2s; }
+  .batch-item.status-done { border-color: var(--accent); }
+  .batch-item.status-error { border-color: var(--danger); }
+  .batch-item-thumb { width: 44px; height: 44px; border-radius: 8px; background: var(--surface); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; font-size: 18px; }
+  .batch-item-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .batch-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .batch-item-name { font-size: 11px; color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .batch-item-picks { display: flex; flex-direction: column; gap: 4px; }
+  .mini-btns { display: flex; gap: 4px; flex-wrap: wrap; }
+  .mini-btn { padding: 4px 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-family: 'Noto Sans JP', sans-serif; font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .mini-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .mini-btn.selected { border-color: var(--accent); color: #000; background: var(--accent); font-weight: 700; }
+  .batch-remark-input { width: 100%; padding: 6px 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'Noto Sans JP', sans-serif; font-size: 10px; }
+  .batch-remark-input:focus { outline: none; border-color: var(--accent); }
+  .batch-item-status { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+  .batch-status-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; padding: 3px 7px; border-radius: 100px; color: var(--muted); background: var(--surface); white-space: nowrap; }
+  .batch-item.status-analyzing .batch-status-badge { color: var(--warn); }
+  .batch-item.status-done .batch-status-badge { color: var(--accent); }
+  .batch-item.status-error .batch-status-badge { color: var(--danger); }
+  .batch-item-error { font-size: 9px; color: var(--danger); max-width: 120px; text-align: right; }
+  .batch-retry-btn, .batch-remove-btn { background: none; border: 1px solid var(--border); color: var(--muted); width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 10px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .batch-retry-btn:hover { border-color: var(--warn); color: var(--warn); }
+  .batch-remove-btn:hover { border-color: var(--danger); color: var(--danger); }
+  .batch-analyze-btn { display: block; width: 100%; padding: 14px; background: var(--accent); color: #000; border: none; border-radius: 10px; font-family: 'Noto Sans JP', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+  .batch-analyze-btn:hover:not(:disabled) { background: #6fffc4; transform: translateY(-1px); }
+  .batch-analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
   /* ── Camera modal ── */
   #camera-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 1000; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
   #camera-modal.open { display: flex; }
@@ -285,7 +319,7 @@
       <div class="panel-body">
         <div class="input-tabs">
           <label class="input-tab" id="tab-upload">
-            <input type="file" id="file-input" accept="image/*,application/pdf">
+            <input type="file" id="file-input" accept="image/*,application/pdf" multiple>
             <span class="tab-icon">🖼️</span>
             <span id="tab-upload-lbl">画像を選択</span>
           </label>
@@ -321,6 +355,14 @@
             <div class="sel-step-label" id="lbl-remark">Remark（任意）</div>
             <textarea id="remark-input" class="remark-textarea" placeholder="レシートに関するメモを入力…" oninput="currentRemark=this.value"></textarea>
           </div>
+        </div>
+        <div id="batch-queue-wrap" style="display:none">
+          <div class="batch-queue-header">
+            <span id="batch-queue-count" class="batch-queue-count"></span>
+            <button type="button" class="batch-clear-btn" onclick="clearBatchQueue()">✕</button>
+          </div>
+          <div id="batch-queue-list" class="batch-queue-list"></div>
+          <button type="button" id="batch-analyze-btn" class="batch-analyze-btn" onclick="analyzeBatch()" disabled></button>
         </div>
         <div class="loading-bar" id="loading-bar"></div>
         <div class="loading-text" id="loading-text">🤖 AIがレシートを解析中…</div>
@@ -491,6 +533,11 @@ const T = {
     amDupDesc: n => `${n}件が既存データと重複している可能性があります。確認してください。`,
     amSubmitAll: 'すべて申請',
     amSubmitSkipDups: '重複をスキップして申請',
+    batchCount: n => `${n}件選択中`,
+    batchAnalyzeBtn: '📤 まとめて解析する',
+    batchAnalyzing: '解析中…',
+    batchStatus: { loading: '読込中', pending: '準備完了', analyzing: '解析中…', done: '完了', error: 'エラー' },
+    batchFailSummary: n => `${n}件の解析に失敗しました。個別に再試行してください。`,
   },
   en: {
     title: 'Expense <span style="color:var(--accent)">Tracker</span>',
@@ -539,6 +586,11 @@ const T = {
     amDupDesc: n => `${n} item(s) may be duplicates of existing entries. Please review before submitting.`,
     amSubmitAll: 'Submit All',
     amSubmitSkipDups: 'Skip Duplicates & Submit',
+    batchCount: n => `${n} file(s) selected`,
+    batchAnalyzeBtn: '📤 Analyze All',
+    batchAnalyzing: 'Analyzing…',
+    batchStatus: { loading: 'Loading', pending: 'Ready', analyzing: 'Analyzing…', done: 'Done', error: 'Error' },
+    batchFailSummary: n => `${n} file(s) failed. Retry them individually.`,
   }
 };
 
@@ -557,6 +609,8 @@ let currentCostCenter = null;
 let currentRemark = '';
 let currentUser = null;
 let maxRowNo = 0;
+let batchQueue = [];
+let batchProcessing = false;
 
 // ─── Login / Logout ───────────────────────────────────────────────────────────
 function login() {
@@ -642,6 +696,7 @@ function applyLang() {
   if (applyLabelEl) applyLabelEl.textContent = t.applyLabel;
   const thStatus = document.getElementById('th-status');
   if (thStatus) thStatus.textContent = t.thStatus;
+  if (batchQueue.length > 0) renderBatchQueue();
   rows.forEach(r => {
     const noteEl = document.querySelector(`#row-${r.id} .note-cell`);
     if (noteEl) noteEl.textContent = lang==='ja' ? (r.note_ja||'') : (r.note_en||'');
@@ -717,8 +772,20 @@ async function loadFromNotion() {
 
 // ─── File input ───────────────────────────────────────────────────────────────
 document.getElementById('file-input').addEventListener('change', e => {
-  const f = e.target.files[0];
-  if (f) loadFile(f);
+  const files = Array.from(e.target.files || []);
+  if (files.length === 0) return;
+  if (batchProcessing) {
+    e.target.value = '';
+    showToast(lang === 'ja' ? '⚠ 解析処理が完了してから選び直してください' : '⚠ Please wait for the current analysis to finish');
+    return;
+  }
+  if (files.length === 1) {
+    clearBatchQueue();
+    loadFile(files[0]);
+  } else {
+    clearPreview();
+    loadBatchFiles(files);
+  }
 });
 
 function loadFile(file) {
@@ -786,6 +853,282 @@ function clearPreview() {
   document.getElementById('selection-flow').style.display = 'none';
   document.getElementById('analyze-btn').style.display = 'none';
   document.getElementById('file-input').value = '';
+}
+
+// ─── Batch upload queue ─────────────────────────────────────────────────────────
+function loadBatchFiles(files) {
+  batchQueue = files.map(file => ({
+    id: 'b' + Date.now() + Math.floor(Math.random() * 999999),
+    file,
+    base64: null,
+    mediaType: file.type || 'image/jpeg',
+    isPdf: file.type === 'application/pdf',
+    fileName: file.name,
+    thumbUrl: '',
+    paymentMethod: null,
+    costCenter: null,
+    remark: '',
+    status: 'loading',
+    errorMsg: '',
+  }));
+  document.getElementById('batch-queue-wrap').style.display = 'block';
+  document.getElementById('error-msg').style.display = 'none';
+  renderBatchQueue();
+  batchQueue.forEach(item => {
+    readBatchFile(item).then(() => renderBatchQueue());
+  });
+}
+
+function readBatchFile(item) {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      if (item.isPdf) {
+        item.base64 = e.target.result.split(',')[1];
+        item.status = 'pending';
+        resolve();
+        return;
+      }
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 2000;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+          else { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        item.base64 = dataUrl.split(',')[1];
+        item.mediaType = 'image/jpeg';
+        item.thumbUrl = dataUrl;
+        item.status = 'pending';
+        resolve();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(item.file);
+  });
+}
+
+function renderBatchQueue() {
+  const list = document.getElementById('batch-queue-list');
+  if (!list) return;
+  const t = T[lang];
+  document.getElementById('batch-queue-count').textContent = t.batchCount(batchQueue.length);
+  list.innerHTML = '';
+  batchQueue.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'batch-item status-' + item.status;
+
+    const thumb = document.createElement('div');
+    thumb.className = 'batch-item-thumb';
+    if (item.thumbUrl) {
+      const img = document.createElement('img');
+      img.src = item.thumbUrl;
+      thumb.appendChild(img);
+    } else {
+      thumb.textContent = item.isPdf ? '📄' : '⏳';
+    }
+
+    const main = document.createElement('div');
+    main.className = 'batch-item-main';
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'batch-item-name';
+    nameEl.textContent = item.fileName;
+    nameEl.title = item.fileName;
+
+    const picks = document.createElement('div');
+    picks.className = 'batch-item-picks';
+    const pmRow = document.createElement('div');
+    pmRow.className = 'mini-btns';
+    ['Corporate', 'Personal', 'Cash'].forEach(v => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'mini-btn' + (item.paymentMethod === v ? ' selected' : '');
+      b.textContent = v;
+      b.onclick = () => selectBatchPayment(item.id, v);
+      pmRow.appendChild(b);
+    });
+    const ccRow = document.createElement('div');
+    ccRow.className = 'mini-btns';
+    ['MSE', 'MJ', 'Other'].forEach(v => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'mini-btn' + (item.costCenter === v ? ' selected' : '');
+      b.textContent = v;
+      b.onclick = () => selectBatchCostCenter(item.id, v);
+      ccRow.appendChild(b);
+    });
+    picks.appendChild(pmRow);
+    picks.appendChild(ccRow);
+
+    const remarkInput = document.createElement('input');
+    remarkInput.type = 'text';
+    remarkInput.className = 'batch-remark-input';
+    remarkInput.placeholder = t.remarkPlaceholder;
+    remarkInput.value = item.remark;
+    remarkInput.oninput = () => { item.remark = remarkInput.value; };
+
+    main.appendChild(nameEl);
+    main.appendChild(picks);
+    main.appendChild(remarkInput);
+
+    const statusWrap = document.createElement('div');
+    statusWrap.className = 'batch-item-status';
+    const badge = document.createElement('span');
+    badge.className = 'batch-status-badge';
+    badge.textContent = t.batchStatus[item.status] || item.status;
+    statusWrap.appendChild(badge);
+    if (item.status === 'error' && item.errorMsg) {
+      const errText = document.createElement('div');
+      errText.className = 'batch-item-error';
+      errText.textContent = item.errorMsg;
+      statusWrap.appendChild(errText);
+    }
+    const btnRow = document.createElement('div');
+    btnRow.className = 'mini-btns';
+    if (item.status === 'error') {
+      const retryBtn = document.createElement('button');
+      retryBtn.type = 'button';
+      retryBtn.className = 'batch-retry-btn';
+      retryBtn.textContent = '↻';
+      retryBtn.onclick = () => retryBatchItem(item.id);
+      btnRow.appendChild(retryBtn);
+    }
+    if (item.status !== 'analyzing') {
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'batch-remove-btn';
+      removeBtn.textContent = '✕';
+      removeBtn.onclick = () => removeBatchItem(item.id);
+      btnRow.appendChild(removeBtn);
+    }
+    statusWrap.appendChild(btnRow);
+
+    div.appendChild(thumb);
+    div.appendChild(main);
+    div.appendChild(statusWrap);
+    list.appendChild(div);
+  });
+  updateBatchAnalyzeBtn();
+}
+
+function updateBatchAnalyzeBtn() {
+  const btn = document.getElementById('batch-analyze-btn');
+  if (!btn) return;
+  if (!batchProcessing) btn.textContent = T[lang].batchAnalyzeBtn;
+  if (batchQueue.length === 0) return;
+  const stillLoading = batchQueue.some(it => it.status === 'loading');
+  const missingMeta = batchQueue.some(it => it.status !== 'done' && (!it.paymentMethod || !it.costCenter));
+  const nothingToProcess = !batchQueue.some(it => it.status === 'pending' || it.status === 'error');
+  btn.disabled = batchProcessing || stillLoading || missingMeta || nothingToProcess;
+}
+
+function selectBatchPayment(id, value) {
+  const item = batchQueue.find(it => it.id === id);
+  if (!item) return;
+  item.paymentMethod = value;
+  renderBatchQueue();
+}
+
+function selectBatchCostCenter(id, value) {
+  const item = batchQueue.find(it => it.id === id);
+  if (!item) return;
+  item.costCenter = value;
+  renderBatchQueue();
+}
+
+function removeBatchItem(id) {
+  batchQueue = batchQueue.filter(it => it.id !== id);
+  if (batchQueue.length === 0) clearBatchQueue();
+  else renderBatchQueue();
+}
+
+function clearBatchQueue() {
+  batchQueue = [];
+  batchProcessing = false;
+  const wrap = document.getElementById('batch-queue-wrap');
+  if (wrap) wrap.style.display = 'none';
+  const list = document.getElementById('batch-queue-list');
+  if (list) list.innerHTML = '';
+  document.getElementById('file-input').value = '';
+}
+
+async function processBatchItem(item) {
+  item.status = 'analyzing';
+  item.errorMsg = '';
+  renderBatchQueue();
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'analyze', imageBase64: item.base64, mediaType: item.mediaType, paymentMethod: item.paymentMethod, costCenter: item.costCenter, remark: item.remark, user: currentUser, noStart: maxRowNo + 1 })
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`;
+      try { msg = JSON.parse(text).error || msg; } catch {}
+      throw new Error(msg);
+    }
+    const data = JSON.parse(text);
+    if (!Array.isArray(data)) throw new Error('Unexpected response');
+    const serverNoStart = data[0]?.noStart ?? (maxRowNo + 1);
+    data.slice().reverse().forEach((row, i) => addRowData({ ...row, paymentMethod: item.paymentMethod || '', costCenter: item.costCenter || '', remark: item.remark || '', no: serverNoStart + (data.length - 1 - i) }, true, true));
+    maxRowNo = serverNoStart + data.length - 1;
+    item.status = 'done';
+    return true;
+  } catch (err) {
+    item.status = 'error';
+    item.errorMsg = err.message;
+    return false;
+  } finally {
+    renderBatchQueue();
+  }
+}
+
+async function analyzeBatch() {
+  if (batchProcessing) return;
+  batchProcessing = true;
+  updateBatchAnalyzeBtn();
+  document.getElementById('batch-analyze-btn').textContent = T[lang].batchAnalyzing;
+  document.getElementById('error-msg').style.display = 'none';
+
+  const targets = batchQueue.filter(it => it.status === 'pending' || it.status === 'error');
+  let successCount = 0, failCount = 0;
+  for (const item of targets) {
+    const ok = await processBatchItem(item);
+    if (ok) successCount++; else failCount++;
+  }
+
+  batchProcessing = false;
+  updateBatchAnalyzeBtn();
+  setNotionStatus(failCount === 0 ? 'ok' : (successCount > 0 ? 'ok' : 'err'));
+  if (successCount > 0) showToast(T[lang].toastAnalyzed(successCount));
+  if (failCount > 0) {
+    const errEl = document.getElementById('error-msg');
+    errEl.innerHTML = `<strong>${T[lang].errFail}:</strong> ${T[lang].batchFailSummary(failCount)}`;
+    errEl.style.display = 'block';
+  }
+  if (batchQueue.length > 0 && batchQueue.every(it => it.status === 'done')) clearBatchQueue();
+}
+
+async function retryBatchItem(id) {
+  if (batchProcessing) return;
+  const item = batchQueue.find(it => it.id === id);
+  if (!item) return;
+  batchProcessing = true;
+  updateBatchAnalyzeBtn();
+  const ok = await processBatchItem(item);
+  batchProcessing = false;
+  updateBatchAnalyzeBtn();
+  if (ok) {
+    showToast(T[lang].toastAnalyzed(1));
+    if (batchQueue.every(it => it.status === 'done')) clearBatchQueue();
+  }
 }
 
 function selectPaymentMethod(value) {
