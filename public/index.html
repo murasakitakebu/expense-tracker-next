@@ -924,10 +924,10 @@ async function attachPhotoToRow(id, file) {
     r.receiptUrl = data.receiptUrl;
     const linkEl = document.getElementById('receipt-link-' + id);
     if (linkEl) linkEl.innerHTML = `<a href="${data.receiptUrl}" target="_blank" class="icon-btn" title="View receipt">🧾</a>`;
+    if (btn) btn.style.display = 'none';
     showToast(T[lang].toastPhotoAttached);
   } catch (err) {
     showToast('⚠ ' + (err.message || T[lang].errFail));
-  } finally {
     if (btn) { btn.textContent = '📎'; btn.disabled = false; }
   }
 }
@@ -1387,7 +1387,7 @@ function renderRow(row, toTop = false) {
       <span id="notion-badge-${row.id}" class="notion-saved" title="Saved to Notion" style="${row.savedToNotion ? '' : 'display:none'}">✓N</span>
       <button class="icon-btn save-dirty" id="save-btn-${row.id}" onclick="manualSaveRow('${row.id}')" title="${lang==='ja'?'保存':'Save'}" style="display:none">💾</button>
       <span id="receipt-link-${row.id}">${row.receiptUrl ? `<a href="${row.receiptUrl}" target="_blank" class="icon-btn" title="View receipt">🧾</a>` : ''}</span>
-      <button class="icon-btn" id="photo-btn-${row.id}" onclick="triggerAttachPhoto('${row.id}')" title="${lang==='ja'?'写真を添付':'Attach photo'}">📎</button>
+      <button class="icon-btn" id="photo-btn-${row.id}" onclick="triggerAttachPhoto('${row.id}')" title="${lang==='ja'?'写真を添付':'Attach photo'}" style="${row.receiptUrl ? 'display:none' : ''}">📎</button>
       <button class="icon-btn del" onclick="deleteRow('${row.id}')">🗑</button>
     </td>
   `;
