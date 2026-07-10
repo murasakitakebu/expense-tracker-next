@@ -317,6 +317,7 @@
         </div>
       </div>
       <div class="panel-body">
+        <input type="file" id="row-photo-input" accept="image/*,application/pdf" style="display:none">
         <div class="input-tabs">
           <label class="input-tab" id="tab-upload">
             <input type="file" id="file-input" accept="image/*,application/pdf" multiple>
@@ -503,6 +504,7 @@ const T = {
     toastEmpty: '⚠ データがありません',
     toastCSV: '📥 CSVをダウンロードしました', toastXLS: '📥 Excelをダウンロードしました',
     toastCapture: '📸 撮影しました', toastDeleted: '🗑 削除しました',
+    toastPhotoAttached: '📎 写真を添付しました', toastPhotoWait: '⚠ 保存が完了してからもう一度お試しください',
     errFail: 'エラーが発生しました',
     notionOk: 'Notionに接続済み', notionErr: 'Notion未接続', notionLoading: '読込中…',
     totalRow: '合計', filename: '経費精算',
@@ -556,6 +558,7 @@ const T = {
     toastEmpty: '⚠ No data to export',
     toastCSV: '📥 CSV downloaded', toastXLS: '📥 Excel downloaded',
     toastCapture: '📸 Photo captured', toastDeleted: '🗑 Deleted',
+    toastPhotoAttached: '📎 Photo attached', toastPhotoWait: '⚠ Please wait for the row to finish saving, then try again',
     errFail: 'An error occurred',
     notionOk: 'Connected to Notion', notionErr: 'Notion not connected', notionLoading: 'Loading…',
     totalRow: 'Total', filename: 'expense_report',
@@ -853,6 +856,80 @@ function clearPreview() {
   document.getElementById('selection-flow').style.display = 'none';
   document.getElementById('analyze-btn').style.display = 'none';
   document.getElementById('file-input').value = '';
+}
+
+// ─── Attach a photo to an existing row (manual or AI-parsed) ──────────────────
+function readAndCompressFile(file) {
+  return new Promise((resolve, reject) => {
+    const mediaType = file.type || 'image/jpeg';
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('File read failed'));
+    reader.onload = e => {
+      if (mediaType === 'application/pdf') {
+        resolve({ base64: e.target.result.split(',')[1], mediaType });
+        return;
+      }
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 2000;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+          else { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        resolve({ base64: dataUrl.split(',')[1], mediaType: 'image/jpeg' });
+      };
+      img.onerror = () => reject(new Error('Image decode failed'));
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+let pendingPhotoRowId = null;
+
+function triggerAttachPhoto(id) {
+  const r = rows.find(r => r.id === id);
+  if (!r || !r.notion_id) { showToast(T[lang].toastPhotoWait); return; }
+  pendingPhotoRowId = id;
+  document.getElementById('row-photo-input').click();
+}
+
+document.getElementById('row-photo-input').addEventListener('change', e => {
+  const file = e.target.files && e.target.files[0];
+  const id = pendingPhotoRowId;
+  pendingPhotoRowId = null;
+  e.target.value = '';
+  if (file && id) attachPhotoToRow(id, file);
+});
+
+async function attachPhotoToRow(id, file) {
+  const r = rows.find(r => r.id === id);
+  if (!r) return;
+  const btn = document.getElementById('photo-btn-' + id);
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  try {
+    const { base64, mediaType } = await readAndCompressFile(file);
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'attachReceipt', notion_id: r.notion_id, imageBase64: base64, mediaType, user: currentUser || '' })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
+    r.receiptUrl = data.receiptUrl;
+    const linkEl = document.getElementById('receipt-link-' + id);
+    if (linkEl) linkEl.innerHTML = `<a href="${data.receiptUrl}" target="_blank" class="icon-btn" title="View receipt">🧾</a>`;
+    showToast(T[lang].toastPhotoAttached);
+  } catch (err) {
+    showToast('⚠ ' + (err.message || T[lang].errFail));
+  } finally {
+    if (btn) { btn.textContent = '📎'; btn.disabled = false; }
+  }
 }
 
 // ─── Batch upload queue ─────────────────────────────────────────────────────────
@@ -1309,7 +1386,8 @@ function renderRow(row, toTop = false) {
     <td>
       <span id="notion-badge-${row.id}" class="notion-saved" title="Saved to Notion" style="${row.savedToNotion ? '' : 'display:none'}">✓N</span>
       <button class="icon-btn save-dirty" id="save-btn-${row.id}" onclick="manualSaveRow('${row.id}')" title="${lang==='ja'?'保存':'Save'}" style="display:none">💾</button>
-      ${row.receiptUrl ? `<a href="${row.receiptUrl}" target="_blank" class="icon-btn" title="View receipt">🧾</a>` : ''}
+      <span id="receipt-link-${row.id}">${row.receiptUrl ? `<a href="${row.receiptUrl}" target="_blank" class="icon-btn" title="View receipt">🧾</a>` : ''}</span>
+      <button class="icon-btn" id="photo-btn-${row.id}" onclick="triggerAttachPhoto('${row.id}')" title="${lang==='ja'?'写真を添付':'Attach photo'}">📎</button>
       <button class="icon-btn del" onclick="deleteRow('${row.id}')">🗑</button>
     </td>
   `;

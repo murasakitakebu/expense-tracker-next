@@ -342,6 +342,35 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
+  // ── Action: attach/replace a receipt photo on an existing row ──
+  if (action === "attachReceipt") {
+    const { notion_id, imageBase64, mediaType, user } = body;
+    if (!imageBase64) return res.status(400).json({ error: "imageBase64 is required" });
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+      return res.status(500).json({ error: "Supabase is not configured" });
+    }
+    const receiptUrl = await uploadToSupabase(imageBase64, mediaType || "image/jpeg", SUPABASE_URL, SUPABASE_SERVICE_KEY, user);
+    if (!receiptUrl) return res.status(500).json({ error: "Upload to Supabase failed" });
+
+    if (NOTION_API_KEY && notion_id) {
+      const patchRes = await fetch(`https://api.notion.com/v1/pages/${notion_id}`, {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${NOTION_API_KEY}`,
+          "Content-Type": "application/json",
+          "Notion-Version": "2022-06-28",
+        },
+        body: JSON.stringify({ properties: { ReceiptURL: { url: receiptUrl } } }),
+      });
+      if (!patchRes.ok) {
+        const err = await patchRes.text();
+        console.error("Notion attachReceipt error:", err);
+        return res.status(500).json({ error: err, receiptUrl });
+      }
+    }
+    return res.status(200).json({ receiptUrl });
+  }
+
   // ── Action: backfill EURAmount for rows where it is missing ──
   if (action === "backfillEUR") {
     if (!NOTION_API_KEY || !NOTION_DATABASE_ID) {
